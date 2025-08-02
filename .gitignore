@@ -1,0 +1,46 @@
+# Terraform state
+
+## 機密情報が含まれる可能性ありのファイル
+## →RDS,SecretsManager,SSMなどの値が含まれる
+## →複数人の開発時にステートファイルの競合が起こる可能性がある
+
+*.tfstate
+*.tfstate.backup
+
+## .terraform内部ディレクトリ
+## →プラットフォーム依存のバイナリが含まれ再現性や移植性が下がる(実行環境特有の内容が含まれる)
+## →容量もかなり大きくGitには不向きであり、一時ファイルであるため
+
+.terraform/
+
+## Terraformがクラッシュした際のログ
+## デバックの際に活用するもので、パスワードなどの機密情報を含む可能性がある
+
+crash.log
+
+# Local values
+
+## 認証情報やアカウントIDパスワードの具体的な入力値が含まれる可能性があるため
+## 環境依存の構成が公開に不向き
+## 意図せずアカウントIDや機密情報を含む可能性があるため
+
+terraform.tfvars
+terraform.tfvars.json
+
+# Sensitive values
+
+## 開発者が個別にローカル上に上書きした設定を記述するファイル
+## 本番とは違う構成になっている可能性があるファイル
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Plan files
+
+## Terraformの実行結果をバイナリ形式で保存したファイル
+## 一部環境の状態情報やおあすワードが含まれる可能性がある
+## バージョン互換性もなく公開に不向きな内容
+
+*.tfplan

@@ -7,6 +7,15 @@ terraform {
   }
 
   required_version = "= 1.12.2"
+
+  # tfstateはS3で管理する
+  backend "s3" {
+    bucket       = "management-enemaru-terraform-state"
+    key          = "data-controller/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

@@ -44,3 +44,6 @@ override.tf.json
 ## バージョン互換性もなく公開に不向きな内容
 
 *.tfplan
+
+
+*.pem

@@ -47,3 +47,5 @@ override.tf.json
 
 
 *.pem
+
+.DS_Store

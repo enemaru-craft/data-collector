@@ -26,7 +26,8 @@ resource "aws_iam_role_policy" "lambda_dynamodb_access" {
           "dynamodb:PutItem",
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ],
         Resource = "*"
       }

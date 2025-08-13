@@ -18,6 +18,6 @@ module "dynamodb" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  management_world_data_lambda_arn           = module.lambda.management_world_data_lambda_arn
-  management_world_data_lambda_function_name = module.lambda.management_world_data_lambda_function_name
+  stg_management_device_and_world_data_lambda_function_arn  = module.lambda.stg_management_device_and_world_data_lambda_function_arn
+  stg_management_device_and_world_data_lambda_function_name = module.lambda.stg_management_device_and_world_data_lambda_function_name
 }

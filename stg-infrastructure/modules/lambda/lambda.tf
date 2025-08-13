@@ -18,8 +18,8 @@ resource "aws_lambda_function" "mqtt_data_controller" {
 }
 
 
-resource "aws_lambda_function" "management_world_data_lambda" {
-  function_name = "management_world_data_lambda"
+resource "aws_lambda_function" "stg_management_device_and_world_data_lambda" {
+  function_name = "stg_management_device_and_world_data_lambda"
   runtime       = "provided.al2023"
   handler       = "main"
 

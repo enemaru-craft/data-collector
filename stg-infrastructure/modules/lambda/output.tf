@@ -10,12 +10,12 @@ output "function_name" {
   description = "IoT Coreのデータ加工用Lambdaの関数名"
 }
 
-output "management_world_data_lambda_arn" {
-  value       = aws_lambda_function.management_world_data_lambda.arn
-  description = "Management World Data LambdaのARN"
+output "stg_management_device_and_world_data_lambda_function_arn" {
+  value       = aws_lambda_function.stg_management_device_and_world_data_lambda.arn
+  description = "Stgにおいてデバイスとマイクラワールドデータを管理するLambdaのARN"
 }
 
-output "management_world_data_lambda_function_name" {
-  value       = aws_lambda_function.management_world_data_lambda.function_name
-  description = "Management World Data Lambdaの関数名"
+output "stg_management_device_and_world_data_lambda_function_name" {
+  value       = aws_lambda_function.stg_management_device_and_world_data_lambda.function_name
+  description = "Stgにおいてデバイスとマイクラワールドデータを管理するLambdaの関数名"
 }

@@ -1,4 +1,4 @@
-resource "aws_iam_role" "lambda_exec" {
+resource "aws_iam_role" "stg_lambda_exec_role" {
   name = "lambda_exec_role"
 
   assume_role_policy = jsonencode({
@@ -13,9 +13,9 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
-resource "aws_iam_role_policy" "lambda_dynamodb_access" {
+resource "aws_iam_role_policy" "stg_attach_dynamodb_access_policy_to_lambda_exec_role" {
   name = "lambda_dynamodb_access_policy"
-  role = aws_iam_role.lambda_exec.id
+  role = aws_iam_role.stg_lambda_exec_role.id
 
   policy = jsonencode({
     Version = "2012-10-17",

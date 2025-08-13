@@ -1,9 +1,10 @@
-variable "management_world_data_lambda_function_name" {
+variable "stg_management_device_and_world_data_lambda_function_name" {
   type        = string
-  description = "The name of the Lambda function to be used in API Gateway"
+  description = "Stgにおいてデバイスとマイクラワールドデータを管理するLambdaの関数名"
 }
 
-variable "management_world_data_lambda_arn" {
+variable "stg_management_device_and_world_data_lambda_function_arn" {
   type        = string
-  description = "The ARN of the Lambda function to be used in API Gateway"
+  description = "Stgにおいてデバイスとマイクラワールドデータを管理するLambdaのARN"
+
 }

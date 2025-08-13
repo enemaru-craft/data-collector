@@ -7,7 +7,7 @@ variable "topics" {
   }
 }
 
-resource "aws_iot_topic_rule" "mqtt_to_lambda" {
+resource "aws_iot_topic_rule" "stg_power_generation_module_calling_lambda_rule" {
   for_each = var.topics
 
   name        = "mqtt_to_lambda_rule_${each.key}"
@@ -17,17 +17,17 @@ resource "aws_iot_topic_rule" "mqtt_to_lambda" {
   enabled     = true
 
   lambda {
-    function_arn = var.lambda_arn
+    function_arn = var.stg_power_data_registration_lambda_arn
   }
 
 }
 
-resource "aws_lambda_permission" "allow_iot" {
+resource "aws_lambda_permission" "stg_grant_calling_lambda_permission_to_power_generation_module" {
   for_each = var.topics
 
   statement_id  = "AllowExecutionFromIoT_${each.key}"
   action        = "lambda:InvokeFunction"
-  function_name = var.function_name
+  function_name = var.stg_power_data_registration_lambda_function_name
   principal     = "iot.amazonaws.com"
-  source_arn    = aws_iot_topic_rule.mqtt_to_lambda[each.key].arn
+  source_arn    = aws_iot_topic_rule.stg_power_generation_module_calling_lambda_rule[each.key].arn
 }

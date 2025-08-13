@@ -1,9 +1,9 @@
-variable "lambda_arn" {
+variable "stg_power_data_registration_lambda_arn" {
   type        = string
-  description = "value of the Lambda function ARN to be used in IoT topic rules"
+  description = "Stgにおいて発電量データを登録するLambdaのARN"
 }
 
-variable "function_name" {
+variable "stg_power_data_registration_lambda_function_name" {
   type        = string
-  description = "value of the Lambda function name to be used in IoT topic rules"
+  description = "Stgにおいて発電量データを登録するLambdaの関数名"
 }

@@ -1,3 +1,3 @@
-resource "aws_iot_thing" "mqtt_test" {
-  name = "mqtt_test_thing"
+resource "aws_iot_thing" "stg_power_generation_module" {
+  name = "stg_power_generation_module"
 }

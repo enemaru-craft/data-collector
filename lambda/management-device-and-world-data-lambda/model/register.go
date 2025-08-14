@@ -8,7 +8,16 @@ import (
 )
 
 func CheckSessionNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
-	stmt, err := tx.PrepareContext(ctx, "SELECT EXISTS (SELECT 1 FROM sessions WHERE session_id = $1)")
+	stmt, err := tx.PrepareContext(ctx, `
+		SELECT
+			EXISTS
+		(SELECT
+			1
+		FROM
+			sessions
+		WHERE
+			session_id = $1)
+	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
@@ -27,7 +36,16 @@ func CheckSessionNotExists(ctx context.Context, tx *sql.Tx, sessionID string) er
 }
 
 func CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) error {
-	stmt, err := tx.PrepareContext(ctx, "SELECT EXISTS (SELECT 1 FROM devices WHERE device_id = $1)")
+	stmt, err := tx.PrepareContext(ctx, `
+		SELECT
+			EXISTS
+		(SELECT
+			1
+		FROM
+			devices
+		WHERE
+			device_id = $1)
+	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
@@ -47,9 +65,13 @@ func CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) erro
 func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error {
 	// sessions 用の PreparedStatement
 	stmtSession, err := tx.PrepareContext(ctx, `
-        INSERT INTO sessions(session_id, start_time)
-        VALUES ($1, NOW())
-        ON CONFLICT(session_id) DO NOTHING
+        INSERT INTO
+			sessions(session_id, start_time)
+        VALUES
+			($1, NOW())
+        ON CONFLICT
+			(session_id)
+		DO NOTHING
     `)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare sessions statement: %w", err)}
@@ -62,9 +84,13 @@ func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID
 
 	// devices 用の PreparedStatement
 	stmtDevice, err := tx.PrepareContext(ctx, `
-        INSERT INTO devices(device_id, device_type)
-        VALUES ($1, $2)
-        ON CONFLICT(device_id) DO NOTHING
+        INSERT INTO
+			devices(device_id, device_type)
+        VALUES
+			($1, $2)
+        ON CONFLICT
+			(device_id)
+		DO NOTHING
     `)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare devices statement: %w", err)}
@@ -77,9 +103,13 @@ func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID
 
 	// session_devices 用の PreparedStatement
 	stmtSessionDevice, err := tx.PrepareContext(ctx, `
-        INSERT INTO session_devices(session_id, device_id)
-        VALUES ($1, $2)
-        ON CONFLICT(session_id, device_id) DO NOTHING
+        INSERT INTO
+			session_devices(session_id, device_id)
+        VALUES
+			($1, $2)
+        ON CONFLICT
+			(session_id, device_id)
+		DO NOTHING
     `)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare session_devices statement: %w", err)}

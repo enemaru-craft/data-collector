@@ -11,7 +11,14 @@ func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID
 	var sessionDeviceID int
 
 	getIdStmt, err := tx.PrepareContext(ctx, `
-		SELECT id FROM session_devices WHERE session_id = $1 AND device_id = $2
+		SELECT
+			id
+		FROM
+			session_devices
+		WHERE
+			session_id = $1
+		AND
+			device_id = $2
 	`)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get session_device ID statement: %w", err)}
@@ -27,8 +34,10 @@ func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID
 	}
 
 	registerPowerStmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO power_logs (session_device_id, timestamp, power, gps_lat, gps_lon)
-		VALUES ($1, NOW(), $2, $3, $4)
+		INSERT INTO
+			power_logs (session_device_id, timestamp, power, gps_lat, gps_lon)
+		VALUES
+			($1, NOW(), $2, $3, $4)
 	`)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register power statement: %w", err)}

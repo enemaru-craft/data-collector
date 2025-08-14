@@ -2,8 +2,7 @@
 # 変数を用いて複数のトピックを再帰的に実装する
 variable "topics" {
   default = {
-    test_topic_1 = "test/topic/1"
-    test_topic_2 = "test/topic/2"
+    register_geothermal = "register/geothermal"
   }
 }
 

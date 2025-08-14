@@ -27,7 +27,12 @@ resource "aws_iam_role_policy" "stg_attach_dynamodb_access_policy_to_lambda_exec
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
         ],
         Resource = "*"
       }

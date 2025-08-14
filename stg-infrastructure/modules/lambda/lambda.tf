@@ -13,6 +13,7 @@ resource "aws_lambda_function" "stg_power_data_registration_lambda" {
       source_code_hash,
       s3_bucket,
       s3_key,
+      environment
     ]
   }
 }
@@ -33,6 +34,7 @@ resource "aws_lambda_function" "stg_management_device_and_world_data_lambda" {
       source_code_hash,
       s3_bucket,
       s3_key,
+      environment
     ]
   }
 }

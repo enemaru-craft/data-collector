@@ -25,7 +25,6 @@ CREATE TABLE power_logs (
     session_device_id INT NOT NULL,
     timestamp TIMESTAMP(3) NOT NULL,
     power REAL NOT NULL,
-    co2_emission REAL,
     gps_lat DECIMAL(9, 7),
     gps_lon DECIMAL(10, 7),
     FOREIGN KEY (session_device_id) REFERENCES session_devices(id) ON DELETE CASCADE,

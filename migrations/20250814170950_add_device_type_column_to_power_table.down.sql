@@ -1,0 +1,1 @@
+ALTER TABLE power_logs DROP COLUMN device_type;

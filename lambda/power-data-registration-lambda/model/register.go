@@ -33,18 +33,40 @@ func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get session_device ID: %w", err)}
 	}
 
+	var deviceType string
+	getTypeStmt, err := tx.PrepareContext(ctx, `
+		SELECT
+			device_type
+		FROM
+			devices
+		WHERE
+			device_id = $1
+	`)
+	if err != nil {
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get device_type statement: %w", err)}
+	}
+	defer getTypeStmt.Close()
+
+	err = getTypeStmt.QueryRowContext(ctx, deviceID).Scan(&deviceType)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return &custmerr.LogicalErr{Err: fmt.Errorf("device_type not found for device_id %s", deviceID)}
+		}
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get device_type: %w", err)}
+	}
+
 	registerPowerStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
-			power_logs (session_device_id, timestamp, power, gps_lat, gps_lon)
+			power_logs (session_device_id, timestamp, power, gps_lat, gps_lon, device_type)
 		VALUES
-			($1, NOW(), $2, $3, $4)
+			($1, NOW(), $2, $3, $4, $5)
 	`)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register power statement: %w", err)}
 	}
 	defer registerPowerStmt.Close()
 
-	_, err = registerPowerStmt.ExecContext(ctx, sessionDeviceID, power, geoLat, geoLon)
+	_, err = registerPowerStmt.ExecContext(ctx, sessionDeviceID, power, geoLat, geoLon, deviceType)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to register power data: %w", err)}
 	}

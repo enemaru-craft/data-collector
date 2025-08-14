@@ -4,8 +4,7 @@ variable "stg_device_and_world_management_routes" {
     path   = string
   }))
   default = [
-    { method = "GET", path = "/topic1" },
-    { method = "GET", path = "/topic2" }
+    { method = "POST", path = "/register-new-power-generation-module", description = "新しい発電モジュールを登録する" },
   ]
 }
 

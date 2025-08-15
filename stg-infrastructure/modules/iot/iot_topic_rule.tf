@@ -3,6 +3,10 @@
 variable "topics" {
   default = {
     register_geothermal = "register/geothermal"
+    register_solar      = "register/solar"
+    register_wind       = "register/wind"
+    register_hydrogen   = "register/hydrogen"
+    register_hand_crank = "register/hand-crank"
   }
 }
 

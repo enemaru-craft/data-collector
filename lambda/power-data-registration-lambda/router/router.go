@@ -20,5 +20,21 @@ func Route(ctx context.Context, event json.RawMessage) (string, error) {
 		return controller.RegisterGeothermalPower(ctx, event)
 	}
 
+	if topic.Topic == "register/solar" {
+		return controller.RegisterSolarPower(ctx, event)
+	}
+
+	if topic.Topic == "register/wind" {
+		return controller.RegisterWindPower(ctx, event)
+	}
+
+	if topic.Topic == "register/hydrogen" {
+		return controller.RegisterHydrogenPower(ctx, event)
+	}
+
+	if topic.Topic == "register/hand-crank" {
+		return controller.RegisterHandCrankPower(ctx, event)
+	}
+
 	return "Invalid topic", nil
 }

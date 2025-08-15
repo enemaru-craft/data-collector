@@ -31,7 +31,11 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
@@ -66,7 +70,11 @@ func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, err
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
@@ -101,7 +109,11 @@ func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, erro
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
@@ -136,7 +148,11 @@ func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, 
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
@@ -171,7 +187,11 @@ func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string,
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {

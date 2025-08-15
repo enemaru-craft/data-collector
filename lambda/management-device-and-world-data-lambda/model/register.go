@@ -7,30 +7,27 @@ import (
 	"fmt"
 )
 
-func CheckSessionNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
+func CreateSessionIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
 	stmt, err := tx.PrepareContext(ctx, `
-		SELECT
-			EXISTS
-		(SELECT
-			1
-		FROM
-			sessions
-		WHERE
-			session_id = $1)
+		INSERT INTO
+			sessions(session_id, start_time)
+		VALUES
+			($1, NOW())
+		ON CONFLICT
+			(session_id)
+		DO NOTHING
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
-	var exists bool
-	err = stmt.QueryRowContext(ctx, sessionID).Scan(&exists)
+	_, err = stmt.ExecContext(ctx, sessionID)
 	if err != nil {
-		customErr := &custmerr.TechnicalErr{Err: fmt.Errorf("failed to check session existence: %w", err)}
-		return customErr
-	}
-	if exists {
-		return &custmerr.LogicalErr{Err: fmt.Errorf("session with ID %s already exists", sessionID)}
+		if err == sql.ErrNoRows {
+			return &custmerr.LogicalErr{Err: fmt.Errorf("session with ID %s already exists", sessionID)}
+		}
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to create session: %w", err)}
 	}
 	return nil
 }
@@ -63,25 +60,6 @@ func CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) erro
 }
 
 func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error {
-	// sessions 用の PreparedStatement
-	stmtSession, err := tx.PrepareContext(ctx, `
-        INSERT INTO
-			sessions(session_id, start_time)
-        VALUES
-			($1, NOW())
-        ON CONFLICT
-			(session_id)
-		DO NOTHING
-    `)
-	if err != nil {
-		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare sessions statement: %w", err)}
-	}
-	defer stmtSession.Close()
-
-	if _, err := stmtSession.ExecContext(ctx, sessionID); err != nil {
-		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert session: %w", err)}
-	}
-
 	// devices 用の PreparedStatement
 	stmtDevice, err := tx.PrepareContext(ctx, `
         INSERT INTO

@@ -28,7 +28,12 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
 		}, nil
 	}
-	defer tx.Rollback()
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	var requestBody RegistrationNewPowerGenerationModuleRequestBody
 	if err := json.Unmarshal([]byte(req.Body), &requestBody); err != nil {
@@ -47,7 +52,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 		}, nil
 	}
 
-	err = model.CheckSessionNotExists(ctx, tx, requestBody.SessionID)
+	err = model.CreateSessionIfNotExists(ctx, tx, requestBody.SessionID)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -57,7 +62,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 		case errors.As(err, &lErr):
 			return events.APIGatewayV2HTTPResponse{
 				StatusCode: 404,
-				Body:       fmt.Sprintf("Session not found: %v", err),
+				Body:       fmt.Sprintf("Session found or created failed: %v", err),
 			}, nil
 
 		case errors.As(err, &tErr):
@@ -129,7 +134,11 @@ func GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (ev
 			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
 		}, nil
 	}
-	defer tx.Rollback()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
 
 	latestPowerData, err := model.GetLatestPowerData(ctx, tx, deviceType)
 	if err != nil {

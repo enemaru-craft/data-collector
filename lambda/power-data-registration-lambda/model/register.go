@@ -7,7 +7,7 @@ import (
 	"power-manager/custmerr"
 )
 
-func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
+func RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
 	var sessionDeviceID int
 
 	getIdStmt, err := tx.PrepareContext(ctx, `

@@ -49,3 +49,180 @@ func TestRegisterGeothermalPower_MissingFieldsJSON(t *testing.T) {
 		t.Error("必要なフィールド(geo_lon)が欠けているのにエラーが帰ってこない")
 	}
 }
+
+//////////////////////////////////////////////////Solar Power Registration Tests//////////////////////////////////////////////////
+
+// UnmarshalできないJSONが来たときにエラーを返すこと
+func TestRegisterSolarPower_InvalidJSON(t *testing.T) {
+	// JSONとは違うバイト列を渡すことでテスト
+	_, err := controller.RegisterSolarPower(context.Background(), []byte("Invalid byte array"))
+	if err == nil {
+		t.Error("間違ったJSONを渡したのにエラーが帰ってこない")
+	}
+}
+
+// 必要なフィールドが欠けているJSONを渡したときにエラーを返すこと
+func TestRegisterSolarPower_MissingFieldsJSON(t *testing.T) {
+	payload := `{"device_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err := controller.RegisterSolarPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(session_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	// 必要なフィールドが欠けているJSONを渡す
+	payload = `{"session_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterSolarPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(device_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	// 必要なフィールドが欠けているJSONを渡す
+	payload = `{"session_id": "67890", "device_id": "67890", "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterSolarPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(power)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterSolarPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lat)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lat": "139.6917"}`
+	_, err = controller.RegisterSolarPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lon)が欠けているのにエラーが帰ってこない")
+	}
+}
+
+//////////////////////////////////////////////////Wind Power Registration Tests//////////////////////////////////////////////////
+
+// UnmarshalできないJSONが来たときにエラーを返すこと
+func TestRegisterWindPower_InvalidJSON(t *testing.T) {
+	// JSONとは違うバイト列を渡すことでテスト
+	_, err := controller.RegisterWindPower(context.Background(), []byte("Invalid byte array"))
+	if err == nil {
+		t.Error("間違ったJSONを渡したのにエラーが帰ってこない")
+	}
+}
+
+// 必要なフィールドが欠けているJSONを渡したときにエラーを返すこと
+func TestRegisterWindPower_MissingFieldsJSON(t *testing.T) {
+	payload := `{"device_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err := controller.RegisterWindPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(session_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	// 必要なフィールドが欠けているJSONを渡す
+	payload = `{"session_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterWindPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(device_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	// 必要なフィールドが欠けているJSONを渡す
+	payload = `{"session_id": "67890", "device_id": "67890", "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterWindPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(power)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterWindPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lat)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lat": "139.6917"}`
+	_, err = controller.RegisterWindPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lon)が欠けているのにエラーが帰ってこない")
+	}
+}
+
+//////////////////////////////////////////////////Hydrogen Power Registration Tests//////////////////////////////////////////////////
+
+// UnmarshalできないJSONが来たときにエラーを返すこと
+func TestRegisterHydrogenPower_InvalidJSON(t *testing.T) {
+	_, err := controller.RegisterHydrogenPower(context.Background(), []byte("Invalid byte array"))
+	if err == nil {
+		t.Error("間違ったJSONを渡したのにエラーが帰ってこない")
+	}
+}
+
+// 必要なフィールドが欠けているJSONを渡したときにエラーを返すこと
+func TestRegisterHydrogenPower_MissingFieldsJSON(t *testing.T) {
+	payload := `{"device_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err := controller.RegisterHydrogenPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(session_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHydrogenPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(device_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHydrogenPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(power)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHydrogenPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lat)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lat": "139.6917"}`
+	_, err = controller.RegisterHydrogenPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lon)が欠けているのにエラーが帰ってこない")
+	}
+}
+
+// ////////////////////////////////////////////////HandCrank Power Registration Tests//////////////////////////////////////////////////
+// UnmarshalできないJSONが来たときにエラーを返すこと
+func TestRegisterHandCrankPower_InvalidJSON(t *testing.T) {
+	_, err := controller.RegisterHandCrankPower(context.Background(), []byte("Invalid byte array"))
+	if err == nil {
+		t.Error("間違ったJSONを渡したのにエラーが帰ってこない")
+	}
+}
+
+// 必要なフィールドが欠けているJSONを渡したときにエラーを返すこと
+func TestRegisterHandCrankPower_MissingFieldsJSON(t *testing.T) {
+	payload := `{"device_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err := controller.RegisterHandCrankPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(session_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "power": 100.0, "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHandCrankPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(device_id)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "geo_lat": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHandCrankPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(power)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lon": "139.6917"}`
+	_, err = controller.RegisterHandCrankPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lat)が欠けているのにエラーが帰ってこない")
+	}
+
+	payload = `{"session_id": "67890", "device_id": "67890", "power": "35.6895", "geo_lat": "139.6917"}`
+	_, err = controller.RegisterHandCrankPower(context.Background(), []byte(payload))
+	if err == nil {
+		t.Error("必要なフィールド(geo_lon)が欠けているのにエラーが帰ってこない")
+	}
+}

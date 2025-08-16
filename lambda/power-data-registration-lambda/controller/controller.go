@@ -208,5 +208,5 @@ func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string,
 
 	tx.Commit()
 
-	return "Failed to register geothermal power data: " + err.Error(), err
+	return "Successfully registered hand crank power data", nil
 }

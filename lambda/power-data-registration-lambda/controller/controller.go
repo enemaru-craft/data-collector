@@ -22,7 +22,7 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -61,8 +61,8 @@ func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, err
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
-		return "Invalid payload: missing required fields", nil
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
 	conn := model.GetConn()
@@ -100,8 +100,8 @@ func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, erro
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
-		return "Invalid payload: missing required fields", nil
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
 	conn := model.GetConn()
@@ -139,8 +139,8 @@ func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, 
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
-		return "Invalid payload: missing required fields", nil
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
 	conn := model.GetConn()
@@ -178,8 +178,8 @@ func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string,
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
-		return "Invalid payload: missing required fields", nil
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
 	conn := model.GetConn()

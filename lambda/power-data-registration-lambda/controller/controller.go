@@ -23,7 +23,7 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 	}
 
 	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 {
-		return "Invalid payload: missing required fields", nil
+		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
 	conn := model.GetConn()

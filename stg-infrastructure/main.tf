@@ -10,10 +10,6 @@ module "mqtt_iot" {
   stg_power_data_registration_lambda_function_name = module.lambda.stg_power_data_registration_lambda_function_name
 }
 
-module "dynamodb" {
-  source = "./modules/dynamodb"
-}
-
 
 module "api_gateway" {
   source = "./modules/api_gateway"

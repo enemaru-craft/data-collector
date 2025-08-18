@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"power-manager/controller"
+	"power-manager/model"
 )
 
 type Topic struct {
@@ -16,24 +17,28 @@ func Route(ctx context.Context, event json.RawMessage) (string, error) {
 		return "Topic extraction failed: ", err
 	}
 
+	conn := model.GetConn()
+	repo := model.NewLogRepository(conn)
+	ctr := controller.NewLogController(repo)
+
 	if topic.Topic == "register/geothermal" {
-		return controller.RegisterGeothermalPower(ctx, event)
+		return ctr.RegisterGeothermalPower(ctx, event)
 	}
 
 	if topic.Topic == "register/solar" {
-		return controller.RegisterSolarPower(ctx, event)
+		return ctr.RegisterSolarPower(ctx, event)
 	}
 
 	if topic.Topic == "register/wind" {
-		return controller.RegisterWindPower(ctx, event)
+		return ctr.RegisterWindPower(ctx, event)
 	}
 
 	if topic.Topic == "register/hydrogen" {
-		return controller.RegisterHydrogenPower(ctx, event)
+		return ctr.RegisterHydrogenPower(ctx, event)
 	}
 
 	if topic.Topic == "register/hand-crank" {
-		return controller.RegisterHandCrankPower(ctx, event)
+		return ctr.RegisterHandCrankPower(ctx, event)
 	}
 
 	return "Invalid topic", nil

@@ -16,7 +16,15 @@ type Payload struct {
 	GeoLon    string  `json:"geo_lon"`
 }
 
-func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string, error) {
+type LogController struct {
+	repo model.LogRepositoryInterface
+}
+
+func NewLogController(repo model.LogRepositoryInterface) *LogController {
+	return &LogController{repo: repo}
+}
+
+func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
@@ -26,8 +34,7 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
@@ -37,7 +44,7 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 		}
 	}()
 
-	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -55,7 +62,7 @@ func RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string
 	return "Failed to register geothermal power data: " + err.Error(), err
 }
 
-func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, error) {
+func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
@@ -65,8 +72,7 @@ func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, err
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
@@ -76,7 +82,7 @@ func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, err
 		}
 	}()
 
-	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -94,7 +100,7 @@ func RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, err
 	return "Failed to register geothermal power data: " + err.Error(), err
 }
 
-func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, error) {
+func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
@@ -104,8 +110,7 @@ func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, erro
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
@@ -115,7 +120,7 @@ func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, erro
 		}
 	}()
 
-	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -133,7 +138,7 @@ func RegisterWindPower(ctx context.Context, event json.RawMessage) (string, erro
 	return "Failed to register geothermal power data: " + err.Error(), err
 }
 
-func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, error) {
+func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
@@ -143,8 +148,7 @@ func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, 
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
@@ -154,7 +158,7 @@ func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, 
 		}
 	}()
 
-	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -172,7 +176,7 @@ func RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, 
 	return "Failed to register geothermal power data: " + err.Error(), err
 }
 
-func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string, error) {
+func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
@@ -182,8 +186,7 @@ func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string,
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
 	}
@@ -193,7 +196,7 @@ func RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string,
 		}
 	}()
 
-	err = model.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

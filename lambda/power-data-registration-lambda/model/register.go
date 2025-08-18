@@ -7,7 +7,20 @@ import (
 	"power-manager/custmerr"
 )
 
-func RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
+type LogRepository struct {
+	db *sql.DB
+}
+
+func NewLogRepository(db *sql.DB) *LogRepository {
+	return &LogRepository{db: db}
+}
+
+type LogRepositoryInterface interface {
+	RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+}
+
+func (r *LogRepository) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
 	var sessionDeviceID int
 
 	getIdStmt, err := tx.PrepareContext(ctx, `
@@ -72,4 +85,8 @@ func RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, g
 	}
 
 	return nil
+}
+
+func (r *LogRepository) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return r.db.BeginTx(ctx, opts)
 }

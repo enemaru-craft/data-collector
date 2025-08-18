@@ -59,7 +59,7 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 
 	tx.Commit()
 
-	return "Failed to register geothermal power data: " + err.Error(), err
+	return "Success", nil
 }
 
 func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, error) {
@@ -97,7 +97,7 @@ func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMe
 
 	tx.Commit()
 
-	return "Failed to register geothermal power data: " + err.Error(), err
+	return "Success", nil
 }
 
 func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMessage) (string, error) {
@@ -135,7 +135,7 @@ func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMes
 
 	tx.Commit()
 
-	return "Failed to register geothermal power data: " + err.Error(), err
+	return "Success", nil
 }
 
 func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, error) {
@@ -173,7 +173,7 @@ func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.Ra
 
 	tx.Commit()
 
-	return "Failed to register geothermal power data: " + err.Error(), err
+	return "Success", nil
 }
 
 func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string, error) {
@@ -211,5 +211,5 @@ func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.R
 
 	tx.Commit()
 
-	return "Successfully registered hand crank power data", nil
+	return "Success", nil
 }

@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string) (float32, error) {
+func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string) (float32, error) {
 	stmt, err := tx.PrepareContext(ctx,
 		`
 		SELECT

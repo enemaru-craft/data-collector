@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func CreateSessionIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
+func (repo *ManagementRepository) CreateSessionIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			sessions(session_id, start_time)
@@ -32,7 +32,7 @@ func CreateSessionIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string)
 	return nil
 }
 
-func CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) error {
+func (repo *ManagementRepository) CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) error {
 	stmt, err := tx.PrepareContext(ctx, `
 		SELECT
 			EXISTS
@@ -59,7 +59,7 @@ func CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) erro
 	return nil
 }
 
-func RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error {
+func (repo *ManagementRepository) RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error {
 	// devices 用の PreparedStatement
 	stmtDevice, err := tx.PrepareContext(ctx, `
         INSERT INTO

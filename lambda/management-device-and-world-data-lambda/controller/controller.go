@@ -18,10 +18,16 @@ type RegistrationNewPowerGenerationModuleRequestBody struct {
 	DeviceType string `json:"device_type"`
 }
 
-func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	conn := model.GetConn()
+type ManagementController struct {
+	repo model.ManagementRepositoryInterface
+}
 
-	tx, err := conn.BeginTx(ctx, nil)
+func NewManagementController(repo model.ManagementRepositoryInterface) *ManagementController {
+	return &ManagementController{repo: repo}
+}
+
+func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 500,
@@ -52,7 +58,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 		}, nil
 	}
 
-	err = model.CreateSessionIfNotExists(ctx, tx, requestBody.SessionID)
+	err = c.repo.CreateSessionIfNotExists(ctx, tx, requestBody.SessionID)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -74,7 +80,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 
 	}
 
-	err = model.CheckDeviceNotExists(ctx, tx, requestBody.DeviceID)
+	err = c.repo.CheckDeviceNotExists(ctx, tx, requestBody.DeviceID)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -94,7 +100,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 		}
 	}
 
-	err = model.RegisterNewPowerGenerationModule(ctx, tx, requestBody.SessionID, requestBody.DeviceID, requestBody.DeviceType)
+	err = c.repo.RegisterNewPowerGenerationModule(ctx, tx, requestBody.SessionID, requestBody.DeviceID, requestBody.DeviceType)
 	if err != nil {
 		var tErr *custmerr.TechnicalErr
 		if errors.As(err, &tErr) {
@@ -117,7 +123,7 @@ func RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.API
 	}, nil
 }
 
-func GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func (c *ManagementController) GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	var deviceType string
 	if deviceType = req.QueryStringParameters["device-type"]; deviceType == "" {
 		return events.APIGatewayV2HTTPResponse{
@@ -126,8 +132,7 @@ func GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (ev
 		}, nil
 	}
 
-	conn := model.GetConn()
-	tx, err := conn.BeginTx(ctx, nil)
+	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 500,
@@ -140,7 +145,7 @@ func GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (ev
 		}
 	}()
 
-	latestPowerData, err := model.GetLatestPowerData(ctx, tx, deviceType)
+	latestPowerData, err := c.repo.GetLatestPowerData(ctx, tx, deviceType)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

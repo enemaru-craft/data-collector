@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"data-manager/controller"
+	"data-manager/model"
 	"log"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -12,13 +13,17 @@ func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIG
 	method := req.RequestContext.HTTP.Method
 	path := req.RawPath
 
+	conn := model.GetConn()
+	repo := model.NewManagementRepository(conn)
+	ctr := controller.NewManagementController(repo)
+
 	if method == "POST" && path == "/register-new-power-generation-module" {
-		return controller.RegisterNewPowerGenerationModuleHandler(ctx, req)
+		return ctr.RegisterNewPowerGenerationModuleHandler(ctx, req)
 	}
 
 	if method == "GET" && path == "/get-latest-power" {
 		log.Println("Get latest power request received")
-		return controller.GetLatestPower(ctx, req)
+		return ctr.GetLatestPower(ctx, req)
 	}
 
 	return events.APIGatewayV2HTTPResponse{

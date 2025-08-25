@@ -34,6 +34,10 @@ func (m *mockRepo) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, e
 	return nil, nil
 }
 
+func (m *mockRepo) CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionId string) error {
+	return nil
+}
+
 func TestGetLatestPower_ReturnErrorIfReceivedInvalidJSON(t *testing.T) {
 	ctr := controller.NewManagementController(&mockRepo{})
 

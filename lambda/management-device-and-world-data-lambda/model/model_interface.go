@@ -18,6 +18,7 @@ type ManagementRepositoryInterface interface {
 	CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) error
 	RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error
 	GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, error)
+	CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 

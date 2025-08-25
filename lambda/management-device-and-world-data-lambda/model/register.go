@@ -100,3 +100,25 @@ func (repo *ManagementRepository) RegisterNewPowerGenerationModule(ctx context.C
 
 	return nil
 }
+
+func (repo *ManagementRepository) CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error {
+	stmtWorld, err := tx.PrepareContext(ctx, `
+        INSERT INTO
+			world_state(session_id,timestamp)
+        VALUES
+			($1, NOW())
+		ON CONFLICT
+			(session_id)
+		DO NOTHING
+    `)
+	if err != nil {
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare devices statement: %w", err)}
+	}
+	defer stmtWorld.Close()
+
+	if _, err := stmtWorld.ExecContext(ctx, sessionID); err != nil {
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert device: %w", err)}
+	}
+
+	return nil
+}

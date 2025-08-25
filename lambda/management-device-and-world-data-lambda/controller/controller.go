@@ -112,6 +112,18 @@ func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx conte
 		}
 	}
 
+	err = c.repo.CreateNewWorldIfNotExists(ctx, tx, requestBody.SessionID)
+	if err != nil {
+		var tErr *custmerr.TechnicalErr
+		if errors.As(err, &tErr) {
+			tx.Rollback()
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
 	tx.Commit()
 
 	return events.APIGatewayV2HTTPResponse{

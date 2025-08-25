@@ -132,6 +132,14 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		}, nil
 	}
 
+	var sessionId string
+	if sessionId = req.QueryStringParameters["session-id"]; sessionId == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required query parameter: session-id",
+		}, nil
+	}
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return events.APIGatewayV2HTTPResponse{
@@ -145,7 +153,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		}
 	}()
 
-	latestPowerData, err := c.repo.GetLatestPowerData(ctx, tx, deviceType)
+	latestPowerData, err := c.repo.GetLatestPowerData(ctx, tx, deviceType, sessionId)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

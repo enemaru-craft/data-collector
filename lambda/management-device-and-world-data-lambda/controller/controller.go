@@ -129,7 +129,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 400,
 			Body:       "Missing required query parameter: device-type",
-		}, nil
+		}, errors.New("missing required query parameter: device-type")
 	}
 
 	var sessionId string
@@ -137,7 +137,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 400,
 			Body:       "Missing required query parameter: session-id",
-		}, nil
+		}, errors.New("missing required query parameter: session-id")
 	}
 
 	tx, err := c.repo.BeginTx(ctx, nil)
@@ -145,7 +145,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 500,
 			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
-		}, nil
+		}, errors.New("failed to begin transaction")
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -163,13 +163,13 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 			return events.APIGatewayV2HTTPResponse{
 				StatusCode: 404,
 				Body:       fmt.Sprintf("No power data found for device type %s: %v", deviceType, err),
-			}, nil
+			}, fmt.Errorf("no power data found for device type %s : %v", deviceType, err)
 
 		case errors.As(err, &tErr):
 			return events.APIGatewayV2HTTPResponse{
 				StatusCode: 500,
 				Body:       fmt.Sprintf("Technical error occurred: %v", err),
-			}, nil
+			}, fmt.Errorf("technical error occurred: %v", err)
 		}
 	}
 
@@ -179,7 +179,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 500,
 			Body:       fmt.Sprintf("Failed to marshal response: %v", err),
-		}, nil
+		}, fmt.Errorf("failed to marshal response: %v", err)
 	}
 
 	tx.Commit()

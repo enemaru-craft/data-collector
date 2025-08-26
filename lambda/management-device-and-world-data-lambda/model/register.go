@@ -274,3 +274,159 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 
 	return returnState, nil
 }
+
+func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error) {
+	// 一旦すべての発電方法の最新発電量を計算する
+	getAllPowerStmt, err := tx.PrepareContext(ctx, `
+		SELECT DISTINCT ON (d.device_type)
+			d.device_type,pl.power
+		FROM
+			power_logs pl
+		JOIN
+			session_devices sd
+		ON
+			pl.session_device_id = sd.id
+		JOIN
+			devices d
+		ON
+			sd.device_id = d.device_id
+		WHERE
+			sd.session_id = $1
+		ORDER BY
+			d.device_type,pl.timestamp DESC
+	`)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get all power statement: %w", err)}
+	}
+	defer getAllPowerStmt.Close()
+
+	rows, err := getAllPowerStmt.QueryContext(ctx, sessionID)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query all power: %w", err)}
+	}
+	defer rows.Close()
+
+	latestPower := make(map[string]float32)
+	var allPower float32
+
+	for rows.Next() {
+		var deviceType string
+		var power float32
+		if err := rows.Scan(&deviceType, &power); err != nil {
+			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan row: %w", err)}
+		}
+		latestPower[deviceType] = power
+		allPower += power
+	}
+
+	// 現在の世界の状態を取得
+	getWorldStmt, err := tx.PrepareContext(ctx, `
+		SELECT
+			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,villagers_text
+		FROM
+			world_state
+		WHERE
+			session_id = $1
+		ORDER BY
+			timestamp
+		DESC
+		LIMIT
+			1;
+	`)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get world state statement: %w", err)}
+	}
+	defer getWorldStmt.Close()
+
+	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout bool
+	var villagersTextBytes []byte
+
+	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isBlackout, &villagersTextBytes)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
+	}
+
+	var villagersText []string
+	if len(villagersTextBytes) > 0 {
+		if err := json.Unmarshal(villagersTextBytes, &villagersText); err != nil {
+			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to unmarshal villagers_text: %w", err)}
+		}
+	}
+
+	// オフにする機器に応じてフラグを更新
+	switch equipment {
+	case "light":
+		isLightEnabled = false
+	case "train":
+		isTrainEnabled = false
+	case "factory":
+		isFactoryEnabled = false
+	default:
+		return CurrentWorldState{}, fmt.Errorf("unknown equipment type: %s", equipment)
+	}
+
+	var currentPowerConsumption float32
+	if isLightEnabled {
+		currentPowerConsumption += 10.0
+	}
+	if isTrainEnabled {
+		currentPowerConsumption += 5.0
+	}
+	if isFactoryEnabled {
+		currentPowerConsumption += 7.0
+	}
+
+	var surplusPower float32
+	if currentPowerConsumption > allPower {
+		isBlackout = true
+		isLightEnabled = false
+		isTrainEnabled = false
+		isFactoryEnabled = false
+		surplusPower = 0.0
+	} else {
+		isBlackout = false
+		surplusPower = allPower - currentPowerConsumption
+	}
+
+	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO
+			world_state(session_id,is_light_enabled,is_train_enabled,
+			is_factory_enabled,is_blackout,total_power,surplus_power,villagers_text,timestamp)
+		VALUES
+			($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+	`)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
+	}
+	defer registerNewWorldStateStmt.Close()
+
+	villagersTextJSON, err := json.Marshal(villagersText)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
+	}
+
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, allPower, surplusPower, villagersTextJSON)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
+	}
+
+	state := State{
+		IsLightEnabled:   isLightEnabled,
+		IsTrainEnabled:   isTrainEnabled,
+		IsFactoryEnabled: isFactoryEnabled,
+		IsBlackout:       isBlackout,
+	}
+
+	variables := Variables{
+		TotalPower:   allPower,
+		SurplusPower: surplusPower,
+	}
+
+	returnState := CurrentWorldState{
+		State:     state,
+		Texts:     villagersText,
+		Variables: variables,
+	}
+
+	return returnState, nil
+}

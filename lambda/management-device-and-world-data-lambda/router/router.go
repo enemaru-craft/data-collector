@@ -28,6 +28,10 @@ func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIG
 		return ctr.TurnOnEquipment(ctx, req)
 	}
 
+	if method == "POST" && path == "/turn-off-equipment" {
+		return ctr.TurnOffEquipment(ctx, req)
+	}
+
 	if method == "POST" && path == "/get-current-world-state" {
 		return ctr.GetCurrentWorldState(ctx, req)
 	}

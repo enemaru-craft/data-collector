@@ -7,6 +7,7 @@ variable "stg_device_and_world_management_routes" {
     { method = "GET", path = "/get-latest-power", description = "指定した発電量を新しい順に取得する" },
     { method = "POST", path = "/register-new-power-generation-module", description = "新しい発電モジュールを登録する" },
     { method = "POST", path = "/turn-on-equipment", description = "マイクラ世界の設備をONにする" },
+    { method = "POST", path = "/get-current-world-state", description = "マイクラ世界の現在の状態を取得する｡前回のfetchから電力量などが変わっていた場合は変更後のデータが送信される" },
   ]
 }
 

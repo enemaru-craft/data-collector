@@ -135,19 +135,19 @@ func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx conte
 
 func (c *ManagementController) GetLatestPower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	var deviceType string
-	if deviceType = req.QueryStringParameters["device-type"]; deviceType == "" {
+	if deviceType = req.QueryStringParameters["device_type"]; deviceType == "" {
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 400,
-			Body:       "Missing required query parameter: device-type",
-		}, errors.New("missing required query parameter: device-type")
+			Body:       "Missing required query parameter: device_type",
+		}, errors.New("missing required query parameter: device_type")
 	}
 
 	var sessionId string
-	if sessionId = req.QueryStringParameters["session-id"]; sessionId == "" {
+	if sessionId = req.QueryStringParameters["session_id"]; sessionId == "" {
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 400,
-			Body:       "Missing required query parameter: session-id",
-		}, errors.New("missing required query parameter: session-id")
+			Body:       "Missing required query parameter: session_id",
+		}, errors.New("missing required query parameter: session_id")
 	}
 
 	tx, err := c.repo.BeginTx(ctx, nil)

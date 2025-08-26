@@ -4,14 +4,13 @@ import (
 	"context"
 	"data-manager/controller"
 	"data-manager/model"
-	"log"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
 func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	method := req.RequestContext.HTTP.Method
-	path := req.RawPath
+	path := req.RequestContext.HTTP.Path
 
 	conn := model.GetConn()
 	repo := model.NewManagementRepository(conn)
@@ -22,8 +21,11 @@ func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIG
 	}
 
 	if method == "GET" && path == "/get-latest-power" {
-		log.Println("Get latest power request received")
 		return ctr.GetLatestPower(ctx, req)
+	}
+
+	if method == "POST" && path == "/turn-on-equipment" {
+		return ctr.TurnOnEquipment(ctx, req)
 	}
 
 	return events.APIGatewayV2HTTPResponse{

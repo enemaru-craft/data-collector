@@ -27,6 +27,21 @@ func NewManagementController(repo model.ManagementRepositoryInterface) *Manageme
 }
 
 func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var requestBody RegistrationNewPowerGenerationModuleRequestBody
+	if err := json.Unmarshal([]byte(req.Body), &requestBody); err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       fmt.Sprintf("Invalid request body: %v", err),
+		}, nil
+	}
+
+	if requestBody.SessionID == "" || requestBody.DeviceID == "" || requestBody.DeviceType == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required fields",
+		}, nil
+	}
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return events.APIGatewayV2HTTPResponse{
@@ -40,23 +55,6 @@ func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx conte
 			tx.Rollback()
 		}
 	}()
-
-	var requestBody RegistrationNewPowerGenerationModuleRequestBody
-	if err := json.Unmarshal([]byte(req.Body), &requestBody); err != nil {
-		tx.Rollback()
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 400,
-			Body:       fmt.Sprintf("Invalid request body: %v", err),
-		}, nil
-	}
-
-	if requestBody.SessionID == "" || requestBody.DeviceID == "" || requestBody.DeviceType == "" {
-		tx.Rollback()
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 400,
-			Body:       "Missing required fields",
-		}, nil
-	}
 
 	err = c.repo.CreateSessionIfNotExists(ctx, tx, requestBody.SessionID)
 	if err != nil {
@@ -202,5 +200,67 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
+	}, nil
+}
+
+type equipmentRequest struct {
+	SessionId string `json:"session_id"`
+	Equipment string `json:"equipment"`
+}
+
+func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var equipmentRequestBody equipmentRequest
+	if err := json.Unmarshal([]byte(req.Body), &equipmentRequestBody); err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       fmt.Sprintf("Invalid request body: %v", err),
+		}, nil
+	}
+
+	if equipmentRequestBody.Equipment == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       "Missing equipment",
+		}, nil
+	}
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
+		}, nil
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
+
+	err = c.repo.TurnOnEquipment(ctx, tx, equipmentRequestBody.SessionId, equipmentRequestBody.Equipment)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	tx.Commit()
+
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 200,
+		Body:       fmt.Sprintf("Successfully turned on equipment: %s", equipmentRequestBody.Equipment),
 	}, nil
 }

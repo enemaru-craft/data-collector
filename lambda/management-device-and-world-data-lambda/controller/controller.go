@@ -237,7 +237,7 @@ func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.A
 		}
 	}()
 
-	err = c.repo.TurnOnEquipment(ctx, tx, equipmentRequestBody.SessionId, equipmentRequestBody.Equipment)
+	currentState, err := c.repo.TurnOnEquipment(ctx, tx, equipmentRequestBody.SessionId, equipmentRequestBody.Equipment)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -257,11 +257,21 @@ func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.A
 		}
 	}
 
+	jsonBytes, err := json.Marshal(currentState)
+	if err != nil {
+		// JSONへの変換に失敗した場合のエラーハンドリング
+		tx.Rollback()
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to marshal JSON: %v", err),
+		}, nil
+	}
+
 	tx.Commit()
 
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 200,
-		Body:       fmt.Sprintf("Successfully turned on equipment: %s", equipmentRequestBody.Equipment),
+		Body:       string(jsonBytes),
 	}, nil
 }
 
@@ -320,12 +330,15 @@ func (c *ManagementController) GetCurrentWorldState(ctx context.Context, req eve
 
 	jsonBytes, err := json.Marshal(currentState)
 	if err != nil {
+		tx.Rollback()
 		// JSONへの変換に失敗した場合のエラーハンドリング
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 500,
 			Body:       fmt.Sprintf("Failed to marshal JSON: %v", err),
 		}, nil
 	}
+
+	tx.Commit()
 
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 200,

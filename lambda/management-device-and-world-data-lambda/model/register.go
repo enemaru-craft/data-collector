@@ -229,6 +229,15 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
 	}
 
+	switch equipment {
+	case "light":
+		isLightEnabled = true
+	case "train":
+		isTrainEnabled = true
+	case "factory":
+		isFactoryEnabled = true
+	}
+
 	var surplusPower float32
 	if newPowerConsumption > allPower {
 		isLightEnabled = false
@@ -238,15 +247,6 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		surplusPower = 0.0
 	} else {
 		surplusPower = allPower - newPowerConsumption
-	}
-
-	switch equipment {
-	case "light":
-		isLightEnabled = true
-	case "train":
-		isTrainEnabled = true
-	case "factory":
-		isFactoryEnabled = true
 	}
 
 	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, allPower, surplusPower)

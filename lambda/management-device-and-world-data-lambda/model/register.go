@@ -247,6 +247,7 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		surplusPower = 0.0
 	} else {
 		surplusPower = allPower - newPowerConsumption
+		isBlackout = false
 	}
 
 	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, allPower, surplusPower)

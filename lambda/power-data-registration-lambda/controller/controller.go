@@ -9,11 +9,11 @@ import (
 )
 
 type Payload struct {
-	SessionID string  `json:"session_id"`
-	DeviceID  string  `json:"device_id"`
+	SessionID string  `json:"sessionId"`
+	DeviceID  string  `json:"deviceId"`
 	Power     float32 `json:"power"`
-	GeoLat    string  `json:"geo_lat"`
-	GeoLon    string  `json:"geo_lon"`
+	GeoLat    string  `json:"geoLat"`
+	GeoLon    string  `json:"geoLon"`
 }
 
 type LogController struct {

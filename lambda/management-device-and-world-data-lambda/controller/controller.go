@@ -13,9 +13,9 @@ import (
 )
 
 type RegistrationNewPowerGenerationModuleRequestBody struct {
-	SessionID  string `json:"session_id"`
-	DeviceID   string `json:"device_id"`
-	DeviceType string `json:"device_type"`
+	SessionID  string `json:"sessionId"`
+	DeviceID   string `json:"deviceId"`
+	DeviceType string `json:"deviceType"`
 }
 
 type ManagementController struct {
@@ -183,7 +183,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		}
 	}
 
-	bodyBytes, err := json.Marshal(map[string]float32{"latest_power": latestPowerData})
+	bodyBytes, err := json.Marshal(map[string]float32{"latestPower": latestPowerData})
 	if err != nil {
 		tx.Rollback()
 		return events.APIGatewayV2HTTPResponse{
@@ -204,7 +204,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 }
 
 type equipmentRequest struct {
-	SessionId string `json:"session_id"`
+	SessionId string `json:"sessionId"`
 	Equipment string `json:"equipment"`
 }
 
@@ -266,7 +266,7 @@ func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.A
 }
 
 type worldStateRequest struct {
-	SessionId string `json:"session_id"`
+	SessionId string `json:"sessionId"`
 }
 
 func (c *ManagementController) GetCurrentWorldState(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

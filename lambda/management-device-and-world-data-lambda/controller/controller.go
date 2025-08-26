@@ -264,3 +264,71 @@ func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.A
 		Body:       fmt.Sprintf("Successfully turned on equipment: %s", equipmentRequestBody.Equipment),
 	}, nil
 }
+
+type worldStateRequest struct {
+	SessionId string `json:"session_id"`
+}
+
+func (c *ManagementController) GetCurrentWorldState(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var worldStateRequestBody worldStateRequest
+	if err := json.Unmarshal([]byte(req.Body), &worldStateRequestBody); err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       fmt.Sprintf("Invalid request body: %v", err),
+		}, nil
+	}
+
+	if worldStateRequestBody.SessionId == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing session_id",
+		}, nil
+	}
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
+		}, nil
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
+
+	currentState, err := c.repo.GetCurrentWorldState(ctx, tx, worldStateRequestBody.SessionId)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	jsonBytes, err := json.Marshal(currentState)
+	if err != nil {
+		// JSONへの変換に失敗した場合のエラーハンドリング
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to marshal JSON: %v", err),
+		}, nil
+	}
+
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 200,
+		Body:       string(jsonBytes),
+	}, nil
+}

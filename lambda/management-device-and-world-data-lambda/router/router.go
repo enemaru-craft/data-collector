@@ -28,6 +28,10 @@ func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIG
 		return ctr.TurnOnEquipment(ctx, req)
 	}
 
+	if method == "POST" && path == "/get-current-world-state" {
+		return ctr.GetCurrentWorldState(ctx, req)
+	}
+
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 400,
 		Body:       "Invalid method or path",

@@ -20,6 +20,7 @@ type ManagementRepositoryInterface interface {
 	GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, error)
 	CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error
 	TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) error
+	GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 

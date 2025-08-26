@@ -15,7 +15,14 @@ variable "stg_device_and_world_management_routes" {
 
 
 resource "aws_apigatewayv2_api" "stg_device_and_world_management_api" {
-  name          = "stg_device_and_world_management_api"
+  name = "stg_device_and_world_management_api"
+
+
+  cors_configuration {
+    allow_origins  = ["*"]
+    allow_headers  = ["*"]
+    expose_headers = ["*"]
+  }
   protocol_type = "HTTP"
 }
 

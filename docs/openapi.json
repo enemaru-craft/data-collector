@@ -69,7 +69,7 @@
       }
     },
     "/register-new-power-generation-module": {
-      "get": {
+      "post": {
         "summary": "/register-new-power-generation-module",
         "deprecated": false,
         "description": "これを一番最初に実行する｡",
@@ -130,7 +130,7 @@
       }
     },
     "/get-current-world-state": {
-      "get": {
+      "post": {
         "summary": "/get-current-world-state",
         "deprecated": false,
         "description": "",
@@ -355,7 +355,7 @@
       }
     },
     "/turn-on-equipment": {
-      "get": {
+      "post": {
         "summary": "/turn-on-equipment",
         "deprecated": false,
         "description": "設備をONにする｡消費電力が供給電力を上回った場合すべてのONになっていた機器はOFFになり､isBlackoutのみONになる｡そして次にONにする場合は再計算が走るので普通にONにしてもらっても大丈夫｡",
@@ -467,7 +467,7 @@
       }
     },
     "/turn-off/equipment": {
-      "get": {
+      "post": {
         "summary": "/turn-off-equipment",
         "deprecated": false,
         "description": "OFFにする｡",

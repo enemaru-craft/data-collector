@@ -1,0 +1,585 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "enemaru-craft",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [],
+  "paths": {
+    "/get-latest-power": {
+      "get": {
+        "summary": "/get-latest-power",
+        "deprecated": false,
+        "description": "session_idとdevice_typeを指定した最新の発電量を種t区する",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "device_type",
+            "in": "query",
+            "description": "geothermal,solar,wind,hydrogenのいずれか",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "description": "デバイス登録時に指定したsession_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "gpsLat": {
+                      "type": "string",
+                      "description": "緯度"
+                    },
+                    "gpsLon": {
+                      "type": "string",
+                      "description": "経度"
+                    },
+                    "latestPower": {
+                      "type": "string",
+                      "description": "float32型の発電量(kW)"
+                    }
+                  },
+                  "required": [
+                    "gpsLat",
+                    "gpsLon",
+                    "latestPower"
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/register-new-power-generation-module": {
+      "get": {
+        "summary": "/register-new-power-generation-module",
+        "deprecated": false,
+        "description": "これを一番最初に実行する｡",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "description": "ルームIDみたいな感じ｡これに世界とデバイスを紐づける｡重複は許可されている｡(同じルームに複数デバイス入るため)"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "description": "これの重複は許可されていない｡UUIDなどの被らないものを指定するとよい｡"
+                  },
+                  "deviceType": {
+                    "type": "string",
+                    "description": "geothermal,solar,hydrogen,windのいずれかを指定する"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "deviceId",
+                  "deviceType"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "Registration successful": {
+                      "type": "string",
+                      "description": "JSONの形にするの忘れてた済まない｡メッセージと200返ってくる｡"
+                    }
+                  },
+                  "required": [
+                    "Registration successful"
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/get-current-world-state": {
+      "get": {
+        "summary": "/get-current-world-state",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sessionId"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "isLightEnabled": {
+                          "type": "boolean"
+                        },
+                        "isTrainEnabled": {
+                          "type": "boolean"
+                        },
+                        "isFactoryEnabled": {
+                          "type": "boolean"
+                        },
+                        "isBlackout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "isLightEnabled",
+                        "isTrainEnabled",
+                        "isFactoryEnabled",
+                        "isBlackout"
+                      ]
+                    },
+                    "texts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "variables": {
+                      "type": "object",
+                      "properties": {
+                        "totalPower": {
+                          "type": "number"
+                        },
+                        "surplusPower": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "totalPower",
+                        "surplusPower"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "texts",
+                    "variables"
+                  ]
+                },
+                "example": {
+                  "state": {
+                    "isLightEnabled": true,
+                    "isTrainEnabled": false,
+                    "isFactoryEnabled": false,
+                    "isBlackout": false
+                  },
+                  "texts": [],
+                  "variables": {
+                    "totalPower": 5,
+                    "surplusPower": 5
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/get-power-history": {
+      "get": {
+        "summary": "/get-power-history",
+        "deprecated": false,
+        "description": "これは正直マイクラ側では使わないかも｡時系列の配列があって､それに対応するように各deviceTypeの発電電力が並んでいる｡",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timeLabels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "geothermal": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "hydro": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "wind": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "solar": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "required": [
+                    "timeLabels",
+                    "geothermal",
+                    "hydro",
+                    "wind",
+                    "solar"
+                  ]
+                },
+                "example": {
+                  "timeLabels": [
+                    "2025-08-27T08:12:00+09:00",
+                    "2025-08-27T08:15:00+09:00",
+                    "2025-08-27T22:33:00+09:00",
+                    "2025-08-27T22:36:00+09:00",
+                    "2025-08-27T23:27:00+09:00",
+                    "2025-08-27T23:30:00+09:00",
+                    "2025-08-28T00:09:00+09:00"
+                  ],
+                  "geothermal": [
+                    30,
+                    15,
+                    15,
+                    15,
+                    0,
+                    0,
+                    0
+                  ],
+                  "hydro": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    40,
+                    54,
+                    54
+                  ],
+                  "wind": [
+                    0,
+                    0,
+                    0,
+                    15,
+                    0,
+                    0,
+                    0
+                  ],
+                  "solar": [
+                    0,
+                    0,
+                    0,
+                    15,
+                    0,
+                    0,
+                    4
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/turn-on-equipment": {
+      "get": {
+        "summary": "/turn-on-equipment",
+        "deprecated": false,
+        "description": "設備をONにする｡消費電力が供給電力を上回った場合すべてのONになっていた機器はOFFになり､isBlackoutのみONになる｡そして次にONにする場合は再計算が走るので普通にONにしてもらっても大丈夫｡",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "equipment": {
+                    "type": "string",
+                    "description": "factory,train,lightから選ぶ"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "equipment"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "isLightEnabled": {
+                          "type": "boolean"
+                        },
+                        "isTrainEnabled": {
+                          "type": "boolean"
+                        },
+                        "isFactoryEnabled": {
+                          "type": "boolean"
+                        },
+                        "isBlackout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "isLightEnabled",
+                        "isTrainEnabled",
+                        "isFactoryEnabled",
+                        "isBlackout"
+                      ]
+                    },
+                    "texts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "variables": {
+                      "type": "object",
+                      "properties": {
+                        "totalPower": {
+                          "type": "number",
+                          "description": "float32"
+                        },
+                        "surplusPower": {
+                          "type": "number",
+                          "description": "float32"
+                        }
+                      },
+                      "required": [
+                        "totalPower",
+                        "surplusPower"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "texts",
+                    "variables"
+                  ]
+                },
+                "example": {
+                  "state": {
+                    "isLightEnabled": false,
+                    "isTrainEnabled": false,
+                    "isFactoryEnabled": true,
+                    "isBlackout": false
+                  },
+                  "texts": [],
+                  "variables": {
+                    "totalPower": 88,
+                    "surplusPower": 81
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/turn-off/equipment": {
+      "get": {
+        "summary": "/turn-off-equipment",
+        "deprecated": false,
+        "description": "OFFにする｡",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "equipment": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "equipment"
+                ]
+              },
+              "examples": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "isLightEnabled": {
+                          "type": "boolean"
+                        },
+                        "isTrainEnabled": {
+                          "type": "boolean"
+                        },
+                        "isFactoryEnabled": {
+                          "type": "boolean"
+                        },
+                        "isBlackout": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "isLightEnabled",
+                        "isTrainEnabled",
+                        "isFactoryEnabled",
+                        "isBlackout"
+                      ]
+                    },
+                    "texts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "variables": {
+                      "type": "object",
+                      "properties": {
+                        "totalPower": {
+                          "type": "number"
+                        },
+                        "surplusPower": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "totalPower",
+                        "surplusPower"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "texts",
+                    "variables"
+                  ]
+                },
+                "example": {
+                  "state": {
+                    "isLightEnabled": false,
+                    "isTrainEnabled": false,
+                    "isFactoryEnabled": false,
+                    "isBlackout": false
+                  },
+                  "texts": [],
+                  "variables": {
+                    "totalPower": 88,
+                    "surplusPower": 88
+                  }
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {},
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": []
+}

@@ -46,6 +46,10 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return ctr.GetCurrentWorldState(ctx, req)
 	}
 
+	if method == "GET" && path == "/get-power-history" {
+		return ctr.GetPowerHistory(ctx, req)
+	}
+
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 400,
 		Body:       "Invalid method or path",

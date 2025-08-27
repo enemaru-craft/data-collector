@@ -412,3 +412,62 @@ func (c *ManagementController) GetCurrentWorldState(ctx context.Context, req eve
 		Body:       string(jsonBytes),
 	}, nil
 }
+
+func (c *ManagementController) GetPowerHistory(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var sessionId string
+	if sessionId = req.QueryStringParameters["session_id"]; sessionId == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required query parameter: session_id",
+		}, nil
+	}
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
+		}, nil
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
+
+	chartData, err := c.repo.GetPowerHistory(ctx, tx, sessionId)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	bodyBytes, err := json.Marshal(chartData)
+	if err != nil {
+		tx.Rollback()
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to marshal response: %v", err),
+		}, nil
+	}
+
+	tx.Commit()
+
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 200,
+		Body:       string(bodyBytes),
+	}, nil
+}

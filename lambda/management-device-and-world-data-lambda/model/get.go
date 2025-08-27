@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, error) {
@@ -208,4 +209,96 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	}
 
 	return returnState, nil
+}
+
+type PowerChartData struct {
+	TimeLabels []string  `json:"timeLabels"`
+	Geothermal []float64 `json:"geothermal"`
+	Hydro      []float64 `json:"hydro"`
+	Wind       []float64 `json:"wind"`
+	Solar      []float64 `json:"solar"`
+}
+
+func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionId string) (PowerChartData, error) {
+	stmt, err := tx.PrepareContext(ctx, `
+        SELECT
+            to_timestamp(
+                FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / (3*60)) * 3*60
+            ) AS bucket,
+            d.device_type,
+            AVG(pl.power) AS avg_power
+        FROM
+			power_logs pl
+        JOIN
+			session_devices sd
+		ON
+			pl.session_device_id = sd.id
+        JOIN
+			devices d
+		ON
+			sd.device_id = d.device_id
+        WHERE
+			sd.session_id = $1
+        GROUP BY
+			bucket, d.device_type
+        ORDER BY
+			bucket
+		ASC, d.device_type;
+    `)
+	if err != nil {
+		return PowerChartData{}, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, sessionId)
+	if err != nil {
+		return PowerChartData{}, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	// 時間スロットごとのマップを作成
+	timeMap := make(map[string]map[string]float64)
+	var timeLabels []string
+
+	for rows.Next() {
+		var bucket time.Time
+		var deviceType string
+		var avgPower float64
+		if err := rows.Scan(&bucket, &deviceType, &avgPower); err != nil {
+			return PowerChartData{}, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		t := bucket.Format(time.RFC3339)
+		if _, exists := timeMap[t]; !exists {
+			timeMap[t] = make(map[string]float64)
+			timeLabels = append(timeLabels, t)
+		}
+		timeMap[t][deviceType] = avgPower
+	}
+
+	// PowerChartData に変換
+	chartData := PowerChartData{
+		TimeLabels: timeLabels,
+		Geothermal: make([]float64, len(timeLabels)),
+		Hydro:      make([]float64, len(timeLabels)),
+		Wind:       make([]float64, len(timeLabels)),
+		Solar:      make([]float64, len(timeLabels)),
+	}
+
+	for i, t := range timeLabels {
+		if val, ok := timeMap[t]["geothermal"]; ok {
+			chartData.Geothermal[i] = val
+		}
+		if val, ok := timeMap[t]["hydrogen"]; ok {
+			chartData.Hydro[i] = val
+		}
+		if val, ok := timeMap[t]["wind"]; ok {
+			chartData.Wind[i] = val
+		}
+		if val, ok := timeMap[t]["solar"]; ok {
+			chartData.Solar[i] = val
+		}
+	}
+
+	return chartData, nil
 }

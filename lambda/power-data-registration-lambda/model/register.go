@@ -16,11 +16,11 @@ func NewLogRepository(db *sql.DB) *LogRepository {
 }
 
 type LogRepositoryInterface interface {
-	RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error
+	RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, gpsLat, gpsLon string, power float32) error
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
-func (r *LogRepository) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
+func (r *LogRepository) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, gpsLat, gpsLon string, power float32) error {
 	var sessionDeviceID int
 
 	getIdStmt, err := tx.PrepareContext(ctx, `
@@ -79,7 +79,7 @@ func (r *LogRepository) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, ses
 	}
 	defer registerPowerStmt.Close()
 
-	_, err = registerPowerStmt.ExecContext(ctx, sessionDeviceID, power, geoLat, geoLon, deviceType)
+	_, err = registerPowerStmt.ExecContext(ctx, sessionDeviceID, power, gpsLat, gpsLon, deviceType)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to register power data: %w", err)}
 	}

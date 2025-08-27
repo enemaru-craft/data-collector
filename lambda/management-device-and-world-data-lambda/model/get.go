@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, error) {
+func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, string, string, error) {
 	stmt, err := tx.PrepareContext(ctx,
 		`
 		SELECT
-			pl.power
+			pl.power,pl.gps_lat,pl.gps_lon
 		FROM
 			power_logs pl
 		JOIN
@@ -29,20 +29,21 @@ func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sq
 
 		`)
 	if err != nil {
-		return 0, &custmerr.TechnicalErr{Err: err}
+		return 0, "", "", &custmerr.TechnicalErr{Err: err}
 	}
 	defer stmt.Close()
 
 	var latestPower float32
-	err = stmt.QueryRowContext(ctx, sessionId, deviceType).Scan(&latestPower)
+	var gpsLat, gpsLon string
+	err = stmt.QueryRowContext(ctx, sessionId, deviceType).Scan(&latestPower, &gpsLat, &gpsLon)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, &custmerr.LogicalErr{Err: fmt.Errorf("no power data found for device type %s", deviceType)}
+			return 0, "", "", &custmerr.LogicalErr{Err: fmt.Errorf("no power data found for device type %s", deviceType)}
 		}
-		return 0, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get latest power data: %w", err)}
+		return 0, "", "", &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get latest power data: %w", err)}
 	}
 
-	return latestPower, nil
+	return latestPower, gpsLat, gpsLon, nil
 }
 
 type CurrentWorldState struct {

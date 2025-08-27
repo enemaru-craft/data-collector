@@ -9,11 +9,11 @@ import (
 )
 
 type Payload struct {
-	SessionID string  `json:"session_id"`
-	DeviceID  string  `json:"device_id"`
+	SessionID string  `json:"sessionId"`
+	DeviceID  string  `json:"deviceId"`
 	Power     float32 `json:"power"`
-	GeoLat    string  `json:"geo_lat"`
-	GeoLon    string  `json:"geo_lon"`
+	GeoLat    string  `json:"geoLat"`
+	GeoLon    string  `json:"geoLon"`
 }
 
 type LogController struct {
@@ -34,6 +34,8 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
+	calculatedPower := payload.Power * 2
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -44,7 +46,7 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -72,6 +74,8 @@ func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMe
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
+	calculatedPower := payload.Power * 2
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -82,7 +86,7 @@ func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMe
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -110,6 +114,8 @@ func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMes
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
+	calculatedPower := payload.Power * 2
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -120,7 +126,7 @@ func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMes
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -148,6 +154,8 @@ func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.Ra
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
+	calculatedPower := payload.Power * 2
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -158,7 +166,7 @@ func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.Ra
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -186,6 +194,8 @@ func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.R
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
+	calculatedPower := payload.Power * 2
+
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -196,7 +206,7 @@ func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.R
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, payload.Power)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

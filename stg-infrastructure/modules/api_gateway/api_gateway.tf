@@ -6,13 +6,23 @@ variable "stg_device_and_world_management_routes" {
   default = [
     { method = "GET", path = "/get-latest-power", description = "指定した発電量を新しい順に取得する" },
     { method = "POST", path = "/register-new-power-generation-module", description = "新しい発電モジュールを登録する" },
+    { method = "POST", path = "/turn-on-equipment", description = "マイクラ世界の設備をONにする" },
+    { method = "POST", path = "/turn-off-equipment", description = "マイクラ世界の設備をOFFにする" },
+    { method = "POST", path = "/get-current-world-state", description = "マイクラ世界の現在の状態を取得する｡前回のfetchから電力量などが変わっていた場合は変更後のデータが送信される" },
   ]
 }
 
 
 
 resource "aws_apigatewayv2_api" "stg_device_and_world_management_api" {
-  name          = "stg_device_and_world_management_api"
+  name = "stg_device_and_world_management_api"
+
+
+  cors_configuration {
+    allow_origins  = ["*"]
+    allow_headers  = ["*"]
+    expose_headers = ["*"]
+  }
   protocol_type = "HTTP"
 }
 

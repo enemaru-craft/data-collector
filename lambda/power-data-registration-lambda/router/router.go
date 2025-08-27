@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"power-manager/controller"
 	"power-manager/model"
@@ -11,14 +12,23 @@ type Topic struct {
 	Topic string `json:"topic"`
 }
 
-func Route(ctx context.Context, event json.RawMessage) (string, error) {
+type Router struct {
+	db *sql.DB
+}
+
+func NewRouter(db *sql.DB) *Router {
+	return &Router{
+		db: db,
+	}
+}
+
+func (r *Router) Route(ctx context.Context, event json.RawMessage) (string, error) {
 	var topic Topic
 	if err := json.Unmarshal(event, &topic); err != nil {
 		return "Topic extraction failed: ", err
 	}
 
-	conn := model.GetConn()
-	repo := model.NewLogRepository(conn)
+	repo := model.NewLogRepository(r.db)
 	ctr := controller.NewLogController(repo)
 
 	if topic.Topic == "register/geothermal" {

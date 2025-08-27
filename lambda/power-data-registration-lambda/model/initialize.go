@@ -8,15 +8,10 @@ import (
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
-var conn *sql.DB
-
-func InitDB() error {
+func InitDB() (*sql.DB, error) {
+	var conn *sql.DB
 	/* TODO トラフィックが少ないのでこの方法でできるが､多くなる場合はコネクションについて再考する必要がある*/
 	// すでにコネクションが存在している場合は再利用する
-	if conn != nil && conn.Ping() != nil {
-		return nil
-	}
-
 	user := "postgres"
 	pass := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("DB_HOST")
@@ -29,16 +24,12 @@ func InitDB() error {
 	var err error
 	conn, err = sql.Open("postgres", dsn)
 	if err != nil {
-		return fmt.Errorf("failed to open DB: %w", err)
+		return nil, fmt.Errorf("failed to open DB: %w", err)
 	}
 
 	if err := conn.Ping(); err != nil {
-		return fmt.Errorf("failed to ping DB: %w", err)
+		return nil, fmt.Errorf("failed to ping DB: %w", err)
 	}
 
-	return nil
-}
-
-func GetConn() *sql.DB {
-	return conn
+	return conn, nil
 }

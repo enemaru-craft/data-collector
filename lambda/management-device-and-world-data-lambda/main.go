@@ -10,17 +10,18 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+var r *router.Router
+
 func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	return r.Route(ctx, req)
+}
 
-	log.Println("handler")
-	if err := model.InitDB(); err != nil {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
-			Body:       "Failed to initialize database connection: " + err.Error(),
-		}, nil
+func init() {
+	db, err := model.InitDB()
+	if err != nil {
+		log.Fatalf("Database initialization failed: %v", err)
 	}
-
-	return router.Route(ctx, req)
+	r = router.NewRouter(db)
 }
 
 func main() {

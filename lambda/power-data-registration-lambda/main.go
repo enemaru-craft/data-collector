@@ -3,19 +3,25 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"power-manager/model"
 	"power-manager/router"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
+var r *router.Router
+
 func handler(ctx context.Context, event json.RawMessage) (string, error) {
+	return r.Route(ctx, event)
+}
 
-	if err := model.InitDB(); err != nil {
-		return "Failed to Initialize Database: " + err.Error(), err
+func init() {
+	db, err := model.InitDB()
+	if err != nil {
+		log.Fatalf("Database initialization failed: %v", err)
 	}
-
-	return router.Route(ctx, event)
+	r = router.NewRouter(db)
 }
 
 func main() {

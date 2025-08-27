@@ -4,16 +4,26 @@ import (
 	"context"
 	"data-manager/controller"
 	"data-manager/model"
+	"database/sql"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+type Router struct {
+	db *sql.DB
+}
+
+func NewRouter(db *sql.DB) *Router {
+	return &Router{
+		db: db,
+	}
+}
+
+func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	method := req.RequestContext.HTTP.Method
 	path := req.RequestContext.HTTP.Path
 
-	conn := model.GetConn()
-	repo := model.NewManagementRepository(conn)
+	repo := model.NewManagementRepository(r.db)
 	ctr := controller.NewManagementController(repo)
 
 	if method == "POST" && path == "/register-new-power-generation-module" {

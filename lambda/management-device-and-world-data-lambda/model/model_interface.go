@@ -22,6 +22,7 @@ type ManagementRepositoryInterface interface {
 	TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
 	TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
 	GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
+	GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (PowerChartData, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 

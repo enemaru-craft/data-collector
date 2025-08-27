@@ -12,8 +12,8 @@ type Payload struct {
 	SessionID string  `json:"sessionId"`
 	DeviceID  string  `json:"deviceId"`
 	Power     float32 `json:"power"`
-	GeoLat    string  `json:"geoLat"`
-	GeoLon    string  `json:"geoLon"`
+	GpsLat    string  `json:"gpsLat"`
+	GpsLon    string  `json:"gpsLon"`
 }
 
 type LogController struct {
@@ -30,7 +30,7 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -46,7 +46,7 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -70,7 +70,7 @@ func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMe
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -86,7 +86,7 @@ func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMe
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -110,7 +110,7 @@ func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMes
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -126,7 +126,7 @@ func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMes
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -150,7 +150,7 @@ func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.Ra
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -166,7 +166,7 @@ func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.Ra
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -190,7 +190,7 @@ func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.R
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GeoLat == "" || payload.GeoLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -206,7 +206,7 @@ func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.R
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GeoLat, payload.GeoLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

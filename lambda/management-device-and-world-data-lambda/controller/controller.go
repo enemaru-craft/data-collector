@@ -163,7 +163,7 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		}
 	}()
 
-	latestPowerData, err := c.repo.GetLatestPowerData(ctx, tx, deviceType, sessionId)
+	latestPowerData, gpsLat, gpsLon, err := c.repo.GetLatestPowerData(ctx, tx, deviceType, sessionId)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -183,7 +183,11 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 		}
 	}
 
-	bodyBytes, err := json.Marshal(map[string]float32{"latestPower": latestPowerData})
+	bodyBytes, err := json.Marshal(map[string]interface{}{
+		"latestPower": latestPowerData,
+		"gpsLat":      gpsLat,
+		"gpsLon":      gpsLon,
+	})
 	if err != nil {
 		tx.Rollback()
 		return events.APIGatewayV2HTTPResponse{

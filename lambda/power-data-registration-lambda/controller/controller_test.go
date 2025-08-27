@@ -13,7 +13,7 @@ import (
 
 type mockRepo struct{}
 
-func (m *mockRepo) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, geoLat, geoLon string, power float32) error {
+func (m *mockRepo) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, gpsLat, gpsLon string, power float32) error {
 	return nil
 }
 func (m *mockRepo) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {

@@ -78,26 +78,6 @@ func (c *ManagementController) RegisterNewPowerGenerationModuleHandler(ctx conte
 
 	}
 
-	err = c.repo.CheckDeviceNotExists(ctx, tx, requestBody.DeviceID)
-	if err != nil {
-		tx.Rollback()
-		var lErr *custmerr.LogicalErr
-		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: 404,
-				Body:       fmt.Sprintf("Device not found: %v", err),
-			}, nil
-
-		case errors.As(err, &tErr):
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: 500,
-				Body:       fmt.Sprintf("Technical error occurred: %v", err),
-			}, nil
-		}
-	}
-
 	err = c.repo.RegisterNewPowerGenerationModule(ctx, tx, requestBody.SessionID, requestBody.DeviceID, requestBody.DeviceType)
 	if err != nil {
 		var tErr *custmerr.TechnicalErr

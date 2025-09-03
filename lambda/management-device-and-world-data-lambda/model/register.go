@@ -67,6 +67,9 @@ func (repo *ManagementRepository) RegisterNewPowerGenerationModule(ctx context.C
 			devices(device_id, device_type)
         VALUES
 			($1, $2)
+		ON CONFLICT
+			(device_id)
+		DO NOTHING
     `)
 	if err != nil {
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare devices statement: %w", err)}

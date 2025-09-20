@@ -31,7 +31,7 @@ func (c *LogController) RegisterPower(ctx context.Context, event json.RawMessage
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.DeviceType == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.DeviceType == "" || payload.Power < 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 

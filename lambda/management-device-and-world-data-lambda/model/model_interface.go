@@ -21,7 +21,7 @@ type ManagementRepositoryInterface interface {
 	CheckDeviceNotExists(ctx context.Context, tx *sql.Tx, deviceID string) error
 	RegisterNewPowerGenerationModule(ctx context.Context, tx *sql.Tx, sessionID, deviceID, deviceType string) error
 	GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, string, string, error)
-	GetLatestPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (float32, error)
+	GetMultipleDevicesPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (MultipleDevicePowerResponse, error)
 	CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error
 	TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
 	TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)

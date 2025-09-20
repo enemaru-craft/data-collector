@@ -217,7 +217,7 @@ func (c *ManagementController) GetLatestMultipleDevicePower(ctx context.Context,
 		}
 	}()
 
-	latestPowerData, err := c.repo.GetLatestPowerDataFromDynamoDB(ctx, deviceType, sessionId)
+	latestPowerData, err := c.repo.GetMultipleDevicesPowerDataFromDynamoDB(ctx, deviceType, sessionId)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -237,9 +237,7 @@ func (c *ManagementController) GetLatestMultipleDevicePower(ctx context.Context,
 		}
 	}
 
-	bodyBytes, err := json.Marshal(map[string]interface{}{
-		"latestPower": latestPowerData,
-	})
+	bodyBytes, err := json.Marshal(latestPowerData)
 	if err != nil {
 		tx.Rollback()
 		return events.APIGatewayV2HTTPResponse{

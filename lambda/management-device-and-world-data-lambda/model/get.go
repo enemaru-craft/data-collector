@@ -51,7 +51,7 @@ func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sq
 	return latestPower, gpsLat, gpsLon, nil
 }
 
-func (repo *ManagementRepository) GetLatestPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (float32, error) {
+func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (MultipleDevicePowerResponse, error) {
 	applicableDevices := fmt.Sprintf("M5-%s-%s", sessionId, deviceType)
 
 	input := &dynamodb.QueryInput{
@@ -65,23 +65,38 @@ func (repo *ManagementRepository) GetLatestPowerDataFromDynamoDB(ctx context.Con
 
 	result, err := repo.dc.Query(ctx, input)
 	if err != nil {
-		return 0, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query dynamodb: %w", err)}
+		return MultipleDevicePowerResponse{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query dynamodb: %w", err)}
 	}
 
+	var devices []DeviceDetail
 	totalPower := 0.0
 
 	for _, item := range result.Items {
 		powerStr := item["power"].(*types.AttributeValueMemberN).Value
+		deviceId := item["device_id"].(*types.AttributeValueMemberS).Value
+		gpsLat := item["gps_lat"].(*types.AttributeValueMemberS).Value
+		gpsLon := item["gps_lon"].(*types.AttributeValueMemberS).Value
 
 		power, err := strconv.Atoi(powerStr)
 		if err != nil {
-			return 0, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to convert power to int: %w", err)}
+			return MultipleDevicePowerResponse{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to convert power to int: %w", err)}
 		}
+
+		devices = append(devices, DeviceDetail{
+			DeviceID:   deviceId,
+			DeviceType: deviceType,
+			Power:      float32(power),
+			GpsLat:     gpsLat,
+			GpsLon:     gpsLon,
+		})
 
 		totalPower += float64(power)
 	}
 
-	return float32(totalPower), nil
+	return MultipleDevicePowerResponse{
+		TotalPower: float32(totalPower),
+		Devices:    devices,
+	}, nil
 }
 
 type CurrentWorldState struct {
@@ -100,6 +115,19 @@ type State struct {
 type Variables struct {
 	TotalPower   float32 `json:"totalPower"`
 	SurplusPower float32 `json:"surplusPower"`
+}
+
+type MultipleDevicePowerResponse struct {
+	TotalPower float32        `json:"totalPower"`
+	Devices    []DeviceDetail `json:"devices"`
+}
+
+type DeviceDetail struct {
+	DeviceID   string  `json:"deviceId"`
+	DeviceType string  `json:"deviceType"`
+	Power      float32 `json:"power"`
+	GpsLat     string  `json:"gpsLat"`
+	GpsLon     string  `json:"gpsLon"`
 }
 
 func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error) {

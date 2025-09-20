@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"power-manager/controller"
 	"power-manager/model"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 type Topic struct {
@@ -14,11 +16,13 @@ type Topic struct {
 
 type Router struct {
 	db *sql.DB
+	dc *dynamodb.Client
 }
 
-func NewRouter(db *sql.DB) *Router {
+func NewRouter(db *sql.DB, dc *dynamodb.Client) *Router {
 	return &Router{
 		db: db,
+		dc: dc,
 	}
 }
 
@@ -28,27 +32,11 @@ func (r *Router) Route(ctx context.Context, event json.RawMessage) (string, erro
 		return "Topic extraction failed: ", err
 	}
 
-	repo := model.NewLogRepository(r.db)
+	repo := model.NewLogRepository(r.db, r.dc)
 	ctr := controller.NewLogController(repo)
 
-	if topic.Topic == "register/geothermal" {
-		return ctr.RegisterGeothermalPower(ctx, event)
-	}
-
-	if topic.Topic == "register/solar" {
-		return ctr.RegisterSolarPower(ctx, event)
-	}
-
-	if topic.Topic == "register/wind" {
-		return ctr.RegisterWindPower(ctx, event)
-	}
-
-	if topic.Topic == "register/hydrogen" {
-		return ctr.RegisterHydrogenPower(ctx, event)
-	}
-
-	if topic.Topic == "register/hand-crank" {
-		return ctr.RegisterHandCrankPower(ctx, event)
+	if topic.Topic == "register/power" {
+		return ctr.RegisterPower(ctx, event)
 	}
 
 	return "Invalid topic", nil

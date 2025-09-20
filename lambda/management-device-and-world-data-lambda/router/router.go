@@ -7,15 +7,18 @@ import (
 	"database/sql"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 type Router struct {
 	db *sql.DB
+	dc *dynamodb.Client
 }
 
-func NewRouter(db *sql.DB) *Router {
+func NewRouter(db *sql.DB, dc *dynamodb.Client) *Router {
 	return &Router{
 		db: db,
+		dc: dc,
 	}
 }
 
@@ -23,7 +26,7 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 	method := req.RequestContext.HTTP.Method
 	path := req.RequestContext.HTTP.Path
 
-	repo := model.NewManagementRepository(r.db)
+	repo := model.NewManagementRepository(r.db, r.dc)
 	ctr := controller.NewManagementController(repo)
 
 	if method == "POST" && path == "/register-new-power-generation-module" {
@@ -32,6 +35,10 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 
 	if method == "GET" && path == "/get-latest-power" {
 		return ctr.GetLatestPower(ctx, req)
+	}
+
+	if method == "GET" && path == "/get-latest-multiple-device-power" {
+		return ctr.GetLatestMultipleDevicePower(ctx, req)
 	}
 
 	if method == "POST" && path == "/turn-on-equipment" {

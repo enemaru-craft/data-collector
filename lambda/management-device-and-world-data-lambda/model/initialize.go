@@ -1,10 +1,13 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
@@ -30,4 +33,14 @@ func InitDB() (*sql.DB, error) {
 	}
 
 	return conn, nil
+}
+
+func InitDynamoDB() (*dynamodb.Client, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-northeast-1"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	client := dynamodb.NewFromConfig(cfg)
+	return client, nil
 }

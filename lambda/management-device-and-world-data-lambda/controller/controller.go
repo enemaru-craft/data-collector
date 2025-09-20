@@ -187,6 +187,78 @@ func (c *ManagementController) GetLatestPower(ctx context.Context, req events.AP
 	}, nil
 }
 
+func (c *ManagementController) GetLatestMultipleDevicePower(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var deviceType string
+	if deviceType = req.QueryStringParameters["device_type"]; deviceType == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required query parameter: device_type",
+		}, nil
+	}
+
+	var sessionId string
+	if sessionId = req.QueryStringParameters["session_id"]; sessionId == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required query parameter: session_id",
+		}, nil
+	}
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
+		}, nil
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
+
+	latestPowerData, err := c.repo.GetLatestPowerDataFromDynamoDB(ctx, deviceType, sessionId)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("No power data found for device type %s: %v", deviceType, err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	bodyBytes, err := json.Marshal(map[string]interface{}{
+		"latestPower": latestPowerData,
+	})
+	if err != nil {
+		tx.Rollback()
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to marshal response: %v", err),
+		}, nil
+	}
+
+	tx.Commit()
+
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 200,
+		Body:       string(bodyBytes),
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+	}, nil
+}
+
 type equipmentRequest struct {
 	SessionId string `json:"sessionId"`
 	Equipment string `json:"equipment"`

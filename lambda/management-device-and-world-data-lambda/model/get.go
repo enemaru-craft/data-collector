@@ -6,7 +6,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, string, string, error) {
@@ -44,6 +49,39 @@ func (repo *ManagementRepository) GetLatestPowerData(ctx context.Context, tx *sq
 	}
 
 	return latestPower, gpsLat, gpsLon, nil
+}
+
+func (repo *ManagementRepository) GetLatestPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (float32, error) {
+	applicableDevices := fmt.Sprintf("M5-%s-%s", sessionId, deviceType)
+
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String("tmp_table"),
+		KeyConditionExpression: aws.String("session_id = :sid AND begins_with(device_id,:dtype)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":sid":   &types.AttributeValueMemberS{Value: sessionId},
+			":dtype": &types.AttributeValueMemberS{Value: applicableDevices},
+		},
+	}
+
+	result, err := repo.dc.Query(ctx, input)
+	if err != nil {
+		return 0, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query dynamodb: %w", err)}
+	}
+
+	totalPower := 0.0
+
+	for _, item := range result.Items {
+		powerStr := item["power"].(*types.AttributeValueMemberN).Value
+
+		power, err := strconv.Atoi(powerStr)
+		if err != nil {
+			return 0, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to convert power to int: %w", err)}
+		}
+
+		totalPower += float64(power)
+	}
+
+	return float32(totalPower), nil
 }
 
 type CurrentWorldState struct {

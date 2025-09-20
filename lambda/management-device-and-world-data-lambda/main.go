@@ -21,7 +21,13 @@ func init() {
 	if err != nil {
 		log.Fatalf("Database initialization failed: %v", err)
 	}
-	r = router.NewRouter(db)
+
+	dc, err := model.InitDynamoDB()
+	if err != nil {
+		log.Fatalf("DynamoDB initialization failed: %v", err)
+	}
+
+	r = router.NewRouter(db, dc)
 }
 
 func main() {

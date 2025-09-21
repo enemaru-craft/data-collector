@@ -489,7 +489,7 @@ func (c *ManagementController) GetPowerHistory(ctx context.Context, req events.A
 		}
 	}()
 
-	chartData, err := c.repo.GetPowerHistory(ctx, tx, sessionId)
+	chartData, err := c.repo.GetPowerHistory(ctx, tx, sessionId, 3)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr

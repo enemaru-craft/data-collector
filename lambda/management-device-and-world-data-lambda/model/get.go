@@ -451,7 +451,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
 
 			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
-			rearMidpoint[prevBucketLastLog.DeviceID][prevBucketLastLog.Bucket] = powerAtBoundary
+			rearMidpoint[deviceID][prevBucketLastLog.Bucket] = powerAtBoundary
 		}
 	}
 
@@ -568,8 +568,49 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 	}
 
-	// この時点で deviceMap は []DeviceBuckets に格納されている
-	return PowerChartData{}, nil
+	var timeLabels []string
+	if len(rawLogs) > 0 {
+		start := rawLogs[0].Bucket
+		end := rawLogs[len(rawLogs)-1].Bucket
+		for t := start; !t.After(end); t = t.Add(time.Duration(bucketMinutes) * time.Minute) {
+			timeLabels = append(timeLabels, t.Format("15:04"))
+		}
+	}
+
+	geothermal := make([]float64, len(timeLabels))
+	hydro := make([]float64, len(timeLabels))
+	wind := make([]float64, len(timeLabels))
+	solar := make([]float64, len(timeLabels))
+
+	// デバイスごとにSumPowerを加算
+	for _, result := range powerResult {
+		switch result.DeviceType {
+		case "geothermal":
+			for i := range geothermal {
+				geothermal[i] += result.SumPower
+			}
+		case "hydro":
+			for i := range hydro {
+				hydro[i] += result.SumPower
+			}
+		case "wind":
+			for i := range wind {
+				wind[i] += result.SumPower
+			}
+		case "solar":
+			for i := range solar {
+				solar[i] += result.SumPower
+			}
+		}
+	}
+
+	return PowerChartData{
+		TimeLabels: timeLabels,
+		Geothermal: geothermal,
+		Hydro:      hydro,
+		Wind:       wind,
+		Solar:      solar,
+	}, nil
 }
 
 type ResultData struct {

@@ -318,7 +318,7 @@ func (repo *ManagementRepository) GetPowerHistory(
             to_timestamp(FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / ($2 * 60)) * $2 * 60) AT TIME ZONE 'UTC' AS bucket,
             pl.timestamp,
             pl.power,
-            pl.session_device_id,
+			d.device_id,
             d.device_type
         FROM
             power_logs pl
@@ -409,7 +409,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 }
 
 func printDeviceMap(deviceMap map[string]*DeviceBuckets) {
-	b, err := json.MarshalIndent(deviceMap, "", "  ")
+	b, err := json.Marshal(deviceMap) // Indent なし
 	if err != nil {
 		fmt.Println("Error:", err)
 		return

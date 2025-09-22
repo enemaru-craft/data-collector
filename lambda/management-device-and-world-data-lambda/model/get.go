@@ -440,19 +440,18 @@ func (repo *ManagementRepository) GetPowerHistory(
 				continue // 時間が逆転している場合はスキップ
 			}
 
-			// 境界時刻が prevBucketLastLog からどれだけ経過しているか
+			// 上記の区間全体のうち､境界はどれだけ進んでいるか
 			elapsedDuration := bucket.Bucket.Sub(prevBucketLastLog.Timestamp).Seconds()
 			if elapsedDuration < 0 {
 				continue // 境界が prevBucketLastLog より前ならスキップ
 			}
 
-			// 線形補間で境界時刻での発電量を求める
+			// 傾きに先ほど求めた割合をかけて､最後の点からの増分を求める
 			powerAtBoundary := prevBucketLastLog.Power +
 				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
 
-			// 結果を格納
 			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
-			rearMidpoint[prevBucketLastLog.DeviceID][bucket.Bucket] = powerAtBoundary
+			rearMidpoint[prevBucketLastLog.DeviceID][prevBucketLastLog.Bucket] = powerAtBoundary
 		}
 	}
 

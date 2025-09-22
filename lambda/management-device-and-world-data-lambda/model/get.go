@@ -411,10 +411,20 @@ func (repo *ManagementRepository) GetPowerHistory(
 	}
 
 	// 時間をまたぐ場合の時間軸でどのような発電量を取るか記録する
-	midpoint := make(map[string]map[time.Time]float64)
+	frontMidpoint := make(map[string]map[time.Time]float64)
+	rearMidpoint := make(map[string]map[time.Time]float64)
+
+	// まだ時間の区切りが一つしか無い場合は別の処理をする必要があるので記録しておく
+	single := make(map[string]bool)
 
 	for deviceID, device := range deviceMap {
-		midpoint[deviceID] = make(map[time.Time]float64)
+		frontMidpoint[deviceID] = make(map[time.Time]float64)
+		rearMidpoint[deviceID] = make(map[time.Time]float64)
+
+		if len(device.Buckets) < 2 {
+			single[deviceID] = true
+			continue
+		}
 
 		// bucketsの要素を最初の一つ飛ばして一つずつ取り出す
 		for i := 1; i < len(device.Buckets); i++ {
@@ -441,12 +451,11 @@ func (repo *ManagementRepository) GetPowerHistory(
 				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
 
 			// 結果を格納
-			midpoint[deviceID][bucket.Bucket] = powerAtBoundary
+			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
+			rearMidpoint[prevBucketLastLog.DeviceID][bucket.Bucket] = powerAtBoundary
 		}
 	}
 
-	printDeviceMap(deviceMap)
-	printMidpoint(midpoint)
 	// この時点で deviceMap は []DeviceBuckets に格納されている
 	return PowerChartData{}, nil
 }

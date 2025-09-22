@@ -455,8 +455,72 @@ func (repo *ManagementRepository) GetPowerHistory(
 		}
 	}
 
+	powerResult := make(map[string]ResultData)
+
+	for deviceID, device := range deviceMap {
+
+		sumWs := 0.0
+		if single[deviceID] {
+			// ログ一つもないならスキップ
+			if len(device.Buckets) == 0 {
+				continue
+			}
+
+			bucket := device.Buckets[0]
+			logs := bucket.Logs
+			if len(logs) == 0 {
+				continue
+			}
+
+			if len(logs) == 1 {
+				// ログが一つしか無いなら長方形でWhは求められる
+				onlyLog := logs[0]
+				duration := onlyLog.Timestamp.Sub(bucket.Bucket).Seconds()
+				if duration > 0 {
+					sumWs += onlyLog.Power * duration
+				}
+			} else {
+				for i := 1; i < len(logs); i++ {
+					prev := logs[i-1]
+					curr := logs[i]
+
+					duration := curr.Timestamp.Sub(prev.Timestamp).Seconds()
+					if duration <= 0 {
+						continue
+					}
+					//台形で計算できる
+					area := (prev.Power + curr.Power) / 2.0 * duration
+					sumWs += area
+				}
+
+				// 上記のfor文では台形しか計算していないので､その区間の前後の端は計算されない｡よって計算する｡
+				frontDuration := logs[0].Timestamp.Sub(bucket.Bucket).Seconds()
+				sumWs += logs[0].Power * frontDuration
+
+				bucketEndTime := bucket.Bucket.Add(time.Duration(bucketMinutes) * time.Minute)
+				rearDuration := bucketEndTime.Sub(logs[len(logs)-1].Timestamp).Seconds()
+				sumWs += logs[len(logs)-1].Power * rearDuration
+
+			}
+
+		}
+
+		powerResult[deviceID] = ResultData{
+			DeviceID:   deviceID,
+			DeviceType: device.DeviceType,
+			SumPower:   sumWs / 3600.0, // Ws -> Wh
+		}
+
+	}
+
 	// この時点で deviceMap は []DeviceBuckets に格納されている
 	return PowerChartData{}, nil
+}
+
+type ResultData struct {
+	DeviceID   string
+	DeviceType string
+	SumPower   float64
 }
 
 func printDeviceMap(deviceMap map[string]*DeviceBuckets) {

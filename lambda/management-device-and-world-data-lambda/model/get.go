@@ -460,6 +460,8 @@ func (repo *ManagementRepository) GetPowerHistory(
 	for deviceID, device := range deviceMap {
 
 		sumWs := 0.0
+
+		// 時間の区切りがまだ一つしかない場合
 		if single[deviceID] {
 			// ログ一つもないならスキップ
 			if len(device.Buckets) == 0 {
@@ -503,6 +505,59 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 			}
 
+		} else {
+			for idx, bucket := range device.Buckets {
+				logs := bucket.Logs
+				if len(logs) == 0 {
+					continue
+				}
+
+				bucketStart := bucket.Bucket
+				bucketStartEnd := bucket.Bucket.Add(time.Duration(bucketMinutes) * time.Minute)
+
+				var powerAtStart float64
+				if idx == 0 {
+					// 最初のバケットは長方形で計算するためそのままの値を使う
+					powerAtStart = logs[0].Power
+				} else {
+					// 最初出ない場合は時間の区切りをまたぐので先程計算した値を使う
+					if v, ok := frontMidpoint[deviceID][bucketStart]; ok {
+						powerAtStart = v
+					} else {
+						powerAtStart = logs[0].Power
+					}
+				}
+
+				// 実際に区切りの最初の部分の面積を計算
+				if idx == 0 {
+					// 最初のバケットは長方形で計算するためそのままの値を使う
+					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
+					sumWs += powerAtStart * duration
+				} else {
+					// 最初出ない場合は台形で計算する
+					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
+					sumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
+				}
+
+				// 残りは普通に台形で計算
+				for i := 1; i < len(logs); i++ {
+					prev := logs[i-1]
+					curr := logs[i]
+
+					duration := curr.Timestamp.Sub(prev.Timestamp).Seconds()
+					if duration <= 0 {
+						continue
+					}
+					//台形で計算できる
+					area := (prev.Power + curr.Power) / 2.0 * duration
+					sumWs += area
+				}
+
+				// 最後の部分は台形で計算する
+				duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
+				sumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
+
+			}
 		}
 
 		powerResult[deviceID] = ResultData{

@@ -314,23 +314,31 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 	// === 1. データ取得 ===
 	stmt, err := tx.PrepareContext(ctx, `
-        SELECT
-            to_timestamp(FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / ($2 * 60)) * $2 * 60) AT TIME ZONE 'UTC' AS bucket,
-            pl.timestamp,
-            pl.power,
+			SELECT
+				to_timestamp(
+					FLOOR(
+						(EXTRACT(EPOCH FROM pl.timestamp) +
+						CASE
+							WHEN MOD(EXTRACT(EPOCH FROM pl.timestamp), $2 * 60) = 0 THEN 1
+							ELSE 0
+						END
+						) / ($2 * 60)
+					) * $2 * 60
+				) AT TIME ZONE 'UTC' AS bucket,
+			pl.timestamp,
+			pl.power,
 			d.device_id,
-            d.device_type
-        FROM
-            power_logs pl
-        JOIN
-            session_devices sd ON pl.session_device_id = sd.id
-        JOIN
-            devices d ON sd.device_id = d.device_id
-        WHERE
-            sd.session_id = $1
-        ORDER BY
-			bucket ASC,
-            pl.timestamp ASC;
+			d.device_type
+		FROM
+			power_logs pl
+		JOIN
+			session_devices sd ON pl.session_device_id = sd.id
+		JOIN
+			devices d ON sd.device_id = d.device_id
+		WHERE
+			sd.session_id = $1
+		ORDER BY
+			bucket ASC, pl.timestamp ASC;
     `)
 	if err != nil {
 		return PowerChartData{}, fmt.Errorf("failed to prepare statement: %w", err)
@@ -402,14 +410,58 @@ func (repo *ManagementRepository) GetPowerHistory(
 		}
 	}
 
-	printDeviceMap(deviceMap)
+	// 時間をまたぐ場合の時間軸でどのような発電量を取るか記録する
+	midpoint := make(map[string]map[time.Time]float64)
 
+	for deviceID, device := range deviceMap {
+		midpoint[deviceID] = make(map[time.Time]float64)
+
+		// bucketsの要素を最初の一つ飛ばして一つずつ取り出す
+		for i := 1; i < len(device.Buckets); i++ {
+			bucket := device.Buckets[i]
+
+			prevBucket := device.Buckets[i-1]
+			prevBucketLastLog := prevBucket.Logs[len(prevBucket.Logs)-1]
+			currBucketFirstLog := bucket.Logs[0]
+
+			// 区間全体の長さ
+			totalDuration := currBucketFirstLog.Timestamp.Sub(prevBucketLastLog.Timestamp).Seconds()
+			if totalDuration <= 0 {
+				continue // 時間が逆転している場合はスキップ
+			}
+
+			// 境界時刻が prevBucketLastLog からどれだけ経過しているか
+			elapsedDuration := bucket.Bucket.Sub(prevBucketLastLog.Timestamp).Seconds()
+			if elapsedDuration < 0 {
+				continue // 境界が prevBucketLastLog より前ならスキップ
+			}
+
+			// 線形補間で境界時刻での発電量を求める
+			powerAtBoundary := prevBucketLastLog.Power +
+				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
+
+			// 結果を格納
+			midpoint[deviceID][bucket.Bucket] = powerAtBoundary
+		}
+	}
+
+	printDeviceMap(deviceMap)
+	printMidpoint(midpoint)
 	// この時点で deviceMap は []DeviceBuckets に格納されている
 	return PowerChartData{}, nil
 }
 
 func printDeviceMap(deviceMap map[string]*DeviceBuckets) {
 	b, err := json.Marshal(deviceMap) // Indent なし
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println(string(b))
+}
+
+func printMidpoint(midpoint map[string]map[time.Time]float64) {
+	b, err := json.Marshal(midpoint) // Indent なし
 	if err != nil {
 		fmt.Println("Error:", err)
 		return

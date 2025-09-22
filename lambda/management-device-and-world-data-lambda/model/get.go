@@ -568,42 +568,62 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 	}
 
+	bucketSet := make(map[time.Time]struct{})
+	for _, device := range deviceMap {
+		for _, bucket := range device.Buckets {
+			bucketSet[bucket.Bucket] = struct{}{}
+		}
+	}
+
+	// 時刻をソート
+	var bucketTimes []time.Time
+	for t := range bucketSet {
+		bucketTimes = append(bucketTimes, t)
+	}
+	sort.Slice(bucketTimes, func(i, j int) bool {
+		return bucketTimes[i].Before(bucketTimes[j])
+	})
+
+	// timeLabelsを作成
 	var timeLabels []string
-	if len(rawLogs) > 0 {
-		start := rawLogs[0].Bucket
-		end := rawLogs[len(rawLogs)-1].Bucket
-		for t := start; !t.After(end); t = t.Add(time.Duration(bucketMinutes) * time.Minute) {
-			timeLabels = append(timeLabels, t.Format("15:04"))
+	for _, t := range bucketTimes {
+		timeLabels = append(timeLabels, t.Format("15:04"))
+	}
+
+	// 各発電種別の配列をtimeLabelsと同じ長さで確保
+	geothermal := make([]float64, len(bucketTimes))
+	hydro := make([]float64, len(bucketTimes))
+	wind := make([]float64, len(bucketTimes))
+	solar := make([]float64, len(bucketTimes))
+
+	// バケット×デバイスごとに対応付け
+	for deviceID, device := range deviceMap {
+		for _, bucket := range device.Buckets {
+			// バケット位置を特定
+			index := sort.Search(len(bucketTimes), func(i int) bool {
+				return !bucketTimes[i].Before(bucket.Bucket)
+			})
+			if index >= len(bucketTimes) || !bucketTimes[index].Equal(bucket.Bucket) {
+				continue
+			}
+
+			// 積分結果からWhを取得
+			sumPower := powerResult[deviceID].SumPower
+
+			switch device.DeviceType {
+			case "geothermal":
+				geothermal[index] += sumPower
+			case "hydro":
+				hydro[index] += sumPower
+			case "wind":
+				wind[index] += sumPower
+			case "solar":
+				solar[index] += sumPower
+			}
 		}
 	}
 
-	geothermal := make([]float64, len(timeLabels))
-	hydro := make([]float64, len(timeLabels))
-	wind := make([]float64, len(timeLabels))
-	solar := make([]float64, len(timeLabels))
-
-	// デバイスごとにSumPowerを加算
-	for _, result := range powerResult {
-		switch result.DeviceType {
-		case "geothermal":
-			for i := range geothermal {
-				geothermal[i] += result.SumPower
-			}
-		case "hydro":
-			for i := range hydro {
-				hydro[i] += result.SumPower
-			}
-		case "wind":
-			for i := range wind {
-				wind[i] += result.SumPower
-			}
-		case "solar":
-			for i := range solar {
-				solar[i] += result.SumPower
-			}
-		}
-	}
-
+	// フロントエンドに返す形に整形
 	return PowerChartData{
 		TimeLabels: timeLabels,
 		Geothermal: geothermal,
@@ -611,6 +631,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 		Wind:       wind,
 		Solar:      solar,
 	}, nil
+
 }
 
 type ResultData struct {

@@ -287,14 +287,32 @@ type PowerChartData struct {
 	Solar      []float64 `json:"solar"`
 }
 
+type RawLog struct {
+	Bucket     time.Time
+	Timestamp  time.Time
+	Power      float64
+	DeviceID   string
+	DeviceType string
+}
+
+type DeviceBucket struct {
+	Bucket time.Time // バケット開始時刻
+	Logs   []RawLog
+}
+type DeviceBuckets struct {
+	DeviceID   string
+	DeviceType string
+	Buckets    []*DeviceBucket
+}
+
 func (repo *ManagementRepository) GetPowerHistory(
 	ctx context.Context,
 	tx *sql.Tx,
 	sessionId string,
-	bucketMinutes int, // 3分単位など
+	bucketMinutes int,
 ) (PowerChartData, error) {
 
-	// バケット単位でレコードを取得
+	// === 1. データ取得 ===
 	stmt, err := tx.PrepareContext(ctx, `
         SELECT
             to_timestamp(FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / ($2 * 60)) * $2 * 60) AT TIME ZONE 'UTC' AS bucket,
@@ -311,6 +329,7 @@ func (repo *ManagementRepository) GetPowerHistory(
         WHERE
             sd.session_id = $1
         ORDER BY
+			bucket ASC,
             pl.timestamp ASC;
     `)
 	if err != nil {
@@ -324,96 +343,76 @@ func (repo *ManagementRepository) GetPowerHistory(
 	}
 	defer rows.Close()
 
-	type PowerLog struct {
-		Bucket     time.Time
-		Timestamp  time.Time
-		Power      float64
-		DeviceID   int
-		DeviceType string
-	}
-
-	var logs []PowerLog
+	var rawLogs []RawLog
 	for rows.Next() {
-		var pl PowerLog
+		var pl RawLog
 		if err := rows.Scan(&pl.Bucket, &pl.Timestamp, &pl.Power, &pl.DeviceID, &pl.DeviceType); err != nil {
 			return PowerChartData{}, fmt.Errorf("failed to scan row: %w", err)
 		}
-		logs = append(logs, pl)
+		rawLogs = append(rawLogs, pl)
 	}
 	if err := rows.Err(); err != nil {
 		return PowerChartData{}, fmt.Errorf("rows error: %w", err)
 	}
 
-	result := make(map[string]map[string]float64)
-	var timeLabels []string
+	deviceMap := make(map[string]*DeviceBuckets)
+	for _, log := range rawLogs {
 
-	// バケットごとにグループ化
-	bucketGroups := make(map[string][]PowerLog)
-	for _, log := range logs {
-		// そのままUTCでフォーマット（例: 2025-09-22T01:15:00Z）
-		bucketKey := log.Bucket.Format(time.RFC3339)
-		bucketGroups[bucketKey] = append(bucketGroups[bucketKey], log)
+		// 時間どうこう以前に大元のdeviceIDになにもデータが紐づいてなかったら初期化
+		if _, exists := deviceMap[log.DeviceID]; !exists {
+			deviceMap[log.DeviceID] = &DeviceBuckets{
+				DeviceID:   log.DeviceID,
+				DeviceType: log.DeviceType,
+				Buckets:    []*DeviceBucket{},
+			}
+		}
+		device := deviceMap[log.DeviceID]
+
+		// n分区切りのバケットが存在しているか確認
+		var bucket *DeviceBucket
+		for _, b := range device.Buckets {
+			if b.Bucket.Equal(log.Bucket) {
+				bucket = b
+				break
+			}
+		}
+
+		if bucket == nil {
+			bucket = &DeviceBucket{
+				Bucket: log.Bucket,
+				Logs:   []RawLog{},
+			}
+			device.Buckets = append(device.Buckets, bucket)
+		}
+
+		bucket.Logs = append(bucket.Logs, log)
 	}
 
-	for bucketKey, bucketLogs := range bucketGroups {
-		deviceMap := make(map[int][]PowerLog)
-		for _, l := range bucketLogs {
-			deviceMap[l.DeviceID] = append(deviceMap[l.DeviceID], l)
-		}
+	for _, device := range deviceMap {
+		// n分区切りのバケットを昇順ソート
+		sort.Slice(device.Buckets, func(i, j int) bool {
+			return device.Buckets[i].Bucket.Before(device.Buckets[j].Bucket)
+		})
 
-		if _, exists := result[bucketKey]; !exists {
-			result[bucketKey] = make(map[string]float64)
-		}
-
-		// 台形則による積分
-		for _, devLogs := range deviceMap {
-			if len(devLogs) < 2 {
-				continue
-			}
-
-			sort.Slice(devLogs, func(i, j int) bool {
-				return devLogs[i].Timestamp.Before(devLogs[j].Timestamp)
+		//  各バケット内のログを昇順にソート
+		for _, b := range device.Buckets {
+			sort.Slice(b.Logs, func(i, j int) bool {
+				return b.Logs[i].Timestamp.Before(b.Logs[j].Timestamp)
 			})
-
-			var whTotal float64
-			for i := 0; i < len(devLogs)-1; i++ {
-				dt := devLogs[i+1].Timestamp.Sub(devLogs[i].Timestamp).Seconds() / 3600.0
-				avgPower := (devLogs[i].Power + devLogs[i+1].Power) / 2.0
-				whTotal += avgPower * dt
-			}
-
-			kwhTotal := whTotal / 1000.0
-			deviceType := devLogs[0].DeviceType
-			result[bucketKey][deviceType] += kwhTotal
-		}
-
-		timeLabels = append(timeLabels, bucketKey)
-	}
-
-	sort.Strings(timeLabels)
-
-	chartData := PowerChartData{
-		TimeLabels: timeLabels,
-		Geothermal: make([]float64, len(timeLabels)),
-		Hydro:      make([]float64, len(timeLabels)),
-		Wind:       make([]float64, len(timeLabels)),
-		Solar:      make([]float64, len(timeLabels)),
-	}
-
-	for i, t := range timeLabels {
-		if val, ok := result[t]["geothermal"]; ok {
-			chartData.Geothermal[i] = val
-		}
-		if val, ok := result[t]["hydro"]; ok {
-			chartData.Hydro[i] = val
-		}
-		if val, ok := result[t]["wind"]; ok {
-			chartData.Wind[i] = val
-		}
-		if val, ok := result[t]["solar"]; ok {
-			chartData.Solar[i] = val
 		}
 	}
 
-	return chartData, nil
+	printDeviceMap(deviceMap)
+
+	// この時点で deviceMap は []DeviceBuckets に格納されている
+	return PowerChartData{}, nil
+}
+
+func printDeviceMap(deviceMap map[string]*DeviceBuckets) {
+	b, err := json.MarshalIndent(deviceMap, "", "  ")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println(string(b))
 }

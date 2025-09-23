@@ -121,11 +121,12 @@ func TestGetPowerHistory(t *testing.T) {
 		// テスト実行
 		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
 
-		fmt.Println(result)
-
 		// 検証
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
+
+		assert.Equal(t, []string{"19:27", "19:28"}, result.TimeLabels, "19:27, 19:28が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []float64{0.48910256410256414, 0.23589743589743592}, result.Geothermal, "0.275, 0.23333333333333334が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})

@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -88,6 +89,8 @@ func TestGetPowerHistory(t *testing.T) {
 
 		// テスト実行
 		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+
+		fmt.Println(result)
 
 		// 検証
 		assert.NoError(t, err)

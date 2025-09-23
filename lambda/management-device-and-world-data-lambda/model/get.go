@@ -78,7 +78,7 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 		gpsLat := item["gps_lat"].(*types.AttributeValueMemberS).Value
 		gpsLon := item["gps_lon"].(*types.AttributeValueMemberS).Value
 
-		power, err := strconv.Atoi(powerStr)
+		power, err := strconv.ParseFloat(powerStr, 64)
 		if err != nil {
 			return MultipleDevicePowerResponse{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to convert power to int: %w", err)}
 		}
@@ -455,11 +455,11 @@ func (repo *ManagementRepository) GetPowerHistory(
 		}
 	}
 
-	powerResult := make(map[string]ResultData)
+	// バケットごとの積分結果を保存するマップ
+	bucketPowerResult := make(map[string]map[time.Time]float64) // deviceID -> bucket -> Wh
 
 	for deviceID, device := range deviceMap {
-
-		sumWs := 0.0
+		bucketPowerResult[deviceID] = make(map[time.Time]float64)
 
 		// 時間の区切りがまだ一つしかない場合
 		if single[deviceID] {
@@ -473,6 +473,8 @@ func (repo *ManagementRepository) GetPowerHistory(
 			if len(logs) == 0 {
 				continue
 			}
+
+			sumWs := 0.0
 
 			if len(logs) == 1 {
 				// ログが一つしか無いなら長方形でWhは求められる
@@ -505,6 +507,8 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 			}
 
+			bucketPowerResult[deviceID][bucket.Bucket] = sumWs / 3600.0 // Ws -> Wh
+
 		} else {
 			for idx, bucket := range device.Buckets {
 				logs := bucket.Logs
@@ -514,6 +518,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 				bucketStart := bucket.Bucket
 				bucketStartEnd := bucket.Bucket.Add(time.Duration(bucketMinutes) * time.Minute)
+				bucketSumWs := 0.0
 
 				var powerAtStart float64
 				if idx == 0 {
@@ -532,11 +537,11 @@ func (repo *ManagementRepository) GetPowerHistory(
 				if idx == 0 {
 					// 最初のバケットは長方形で計算するためそのままの値を使う
 					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
-					sumWs += powerAtStart * duration
+					bucketSumWs += powerAtStart * duration
 				} else {
 					// 最初出ない場合は台形で計算する
 					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
-					sumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
+					bucketSumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
 				}
 
 				// 残りは普通に台形で計算
@@ -550,22 +555,16 @@ func (repo *ManagementRepository) GetPowerHistory(
 					}
 					//台形で計算できる
 					area := (prev.Power + curr.Power) / 2.0 * duration
-					sumWs += area
+					bucketSumWs += area
 				}
 
 				// 最後の部分は台形で計算する
 				duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
-				sumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
+				bucketSumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
 
+				bucketPowerResult[deviceID][bucketStart] = bucketSumWs / 3600.0 // Ws -> Wh
 			}
 		}
-
-		powerResult[deviceID] = ResultData{
-			DeviceID:   deviceID,
-			DeviceType: device.DeviceType,
-			SumPower:   sumWs / 3600.0, // Ws -> Wh
-		}
-
 	}
 
 	bucketSet := make(map[time.Time]struct{})
@@ -598,6 +597,8 @@ func (repo *ManagementRepository) GetPowerHistory(
 
 	// バケット×デバイスごとに対応付け
 	for deviceID, device := range deviceMap {
+		bucketMap := bucketPowerResult[deviceID]
+
 		for _, bucket := range device.Buckets {
 			// バケット位置を特定
 			index := sort.Search(len(bucketTimes), func(i int) bool {
@@ -607,13 +608,16 @@ func (repo *ManagementRepository) GetPowerHistory(
 				continue
 			}
 
-			// 積分結果からWhを取得
-			sumPower := powerResult[deviceID].SumPower
+			// バケットごとの積分結果からWhを取得
+			sumPower, exists := bucketMap[bucket.Bucket]
+			if !exists {
+				continue
+			}
 
 			switch device.DeviceType {
 			case "geothermal":
 				geothermal[index] += sumPower
-			case "hydro":
+			case "hydrogen":
 				hydro[index] += sumPower
 			case "wind":
 				wind[index] += sumPower

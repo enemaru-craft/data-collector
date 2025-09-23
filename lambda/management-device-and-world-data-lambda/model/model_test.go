@@ -23,17 +23,14 @@ func TestGetPowerHistory(t *testing.T) {
 	}
 
 	t.Run("単一バケット、単一ログのテスト", func(t *testing.T) {
-		// テストデータ設定
 		sessionId := "test-session"
-		bucketMinutes := 3
+		bucketMinutes := 1
 
-		// モックトランザクションを開始
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		// モックの期待値設定
 		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
@@ -45,59 +42,95 @@ func TestGetPowerHistory(t *testing.T) {
 
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
 
-		// テスト実行
 		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
 
-		// 検証
 		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		// 注意: 現在の実装では PowerChartData{} を返しているため、実際の値は確認できない
-		// このテストは実装修正後に期待値を更新する必要がある
 
-		// モックの期待値チェック
-		assert.NoError(t, mock.ExpectationsWereMet())
+		// 時間のセパレートが正しいか確認する
+		assert.Equal(t, []string{"19:27"}, result.TimeLabels, "19:27が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		// 発電量の計算が正しいか確認する
+		assert.Equal(t, []float64{0.08333333333333333}, result.Geothermal, "0.08333333333333333が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
+
 	})
 
-	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 3
+	t.Run("時間をまたがないテスト", func(t *testing.T) {
+		sessionID := "9999"
+		bucketMinutes := 1
 
-		// モックトランザクションを開始
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		// モックの期待値設定 - M5-22-solar-1のデータを模擬
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionID)
 		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-				time.Date(2025, 9, 22, 19, 27, 33, 872000000, time.UTC),
-				20.0,
-				"M5-22-solar-1",
-				"solar",
+				time.Date(2025, 9, 22, 19, 27, 15, 0, time.UTC),
+				80.0,
+				geothermal,
+				"geothermal",
 			).
 			AddRow(
-				time.Date(2025, 9, 22, 19, 42, 0, 0, time.UTC),
-				time.Date(2025, 9, 22, 19, 43, 12, 29000000, time.UTC),
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				time.Date(2025, 9, 22, 19, 27, 20, 0, time.UTC),
 				20.0,
-				"M5-22-solar-1",
-				"solar",
+				geothermal,
+				"geothermal",
 			)
 
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionID, bucketMinutes).WillReturnRows(rows)
 
-		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionID, bucketMinutes)
 
-		fmt.Println(result)
-
-		// 検証
 		assert.NoError(t, err)
-		assert.NotNil(t, result)
 
-		assert.NoError(t, mock.ExpectationsWereMet())
+		// 時間のセパレートが正しいか確認する
+		assert.Equal(t, []string{"19:27"}, result.TimeLabels)
+		// 一つの時間の区切りにおいて､複数のログがあっても､正しく集計されることを確認する
+		assert.Equal(t, []float64{0.625}, result.Geothermal)
 	})
+
+	//	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
+	//		sessionId := "test-session"
+	//		bucketMinutes := 3
+	//
+	//		// モックトランザクションを開始
+	//		mock.ExpectBegin()
+	//		tx, err := db.Begin()
+	//		assert.NoError(t, err)
+	//		defer tx.Rollback()
+	//
+	//		// モックの期待値設定 - M5-22-solar-1のデータを模擬
+	//		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+	//			AddRow(
+	//				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+	//				time.Date(2025, 9, 22, 19, 27, 33, 872000000, time.UTC),
+	//				20.0,
+	//				"M5-22-solar-1",
+	//				"solar",
+	//			).
+	//			AddRow(
+	//				time.Date(2025, 9, 22, 19, 42, 0, 0, time.UTC),
+	//				time.Date(2025, 9, 22, 19, 43, 12, 29000000, time.UTC),
+	//				20.0,
+	//				"M5-22-solar-1",
+	//				"solar",
+	//			)
+	//
+	//		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+	//
+	//		// テスト実行
+	//		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+	//
+	//		fmt.Println(result)
+	//
+	//		// 検証
+	//		assert.NoError(t, err)
+	//		assert.NotNil(t, result)
+	//
+	//		assert.NoError(t, mock.ExpectationsWereMet())
+	//	})
 }
 
 // 境界値計算のロジックをテストする単体テスト

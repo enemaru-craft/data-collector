@@ -451,7 +451,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
 
 			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
-			rearMidpoint[deviceID][prevBucketLastLog.Bucket] = powerAtBoundary
+			rearMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
 		}
 	}
 

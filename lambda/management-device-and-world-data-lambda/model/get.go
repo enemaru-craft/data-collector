@@ -582,7 +582,6 @@ func (repo *ManagementRepository) GetPowerHistory(
 	sort.Slice(bucketTimes, func(i, j int) bool {
 		return bucketTimes[i].Before(bucketTimes[j])
 	})
-
 	// timeLabelsを作成
 	var timeLabels []string
 	for _, t := range bucketTimes {

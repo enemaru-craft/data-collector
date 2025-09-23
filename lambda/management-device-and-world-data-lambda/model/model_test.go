@@ -91,7 +91,7 @@ func TestGetPowerHistory(t *testing.T) {
 		assert.Equal(t, []float64{0.625}, result.Geothermal)
 	})
 
-	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
+	t.Run("複数バケット、境界を1つまたぐテスト", func(t *testing.T) {
 		sessionId := "test-session"
 		bucketMinutes := 1
 
@@ -131,7 +131,7 @@ func TestGetPowerHistory(t *testing.T) {
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
+	t.Run("複数バケット、境界を2つまたぐテスト", func(t *testing.T) {
 		sessionId := "test-session"
 		bucketMinutes := 1
 

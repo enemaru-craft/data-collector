@@ -1,0 +1,86 @@
+{
+	"M5-22-geothermal-1": {
+		"DeviceID": "M5-22-geothermal-1",
+		"DeviceType": "geothermal",
+		"Buckets": [
+			{
+				"Bucket": "2025-09-22T19:27:00Z",
+				"Logs": [
+					{
+						"Bucket": "2025-09-22T19:27:00Z",
+						"Timestamp": "2025-09-22T19:27:15.505Z",
+						"Power": 20,
+						"DeviceID": "M5-22-geothermal-1",
+						"DeviceType": "geothermal"
+					}
+				]
+			}
+		]
+	},
+	"M5-22-geothermal-2": {
+		"DeviceID": "M5-22-geothermal-2",
+		"DeviceType": "geothermal",
+		"Buckets": [
+			{
+				"Bucket": "2025-09-22T19:27:00Z",
+				"Logs": [
+					{
+						"Bucket": "2025-09-22T19:27:00Z",
+						"Timestamp": "2025-09-22T19:27:19.314Z",
+						"Power": 20,
+						"DeviceID": "M5-22-geothermal-2",
+						"DeviceType": "geothermal"
+					}
+				]
+			}
+		]
+	},
+	"M5-22-solar-1": {
+		"DeviceID": "M5-22-solar-1",
+		"DeviceType": "solar",
+		"Buckets": [
+			{
+				"Bucket": "2025-09-22T19:27:00Z",
+				"Logs": [
+					{
+						"Bucket": "2025-09-22T19:27:00Z",
+						"Timestamp": "2025-09-22T19:27:33.872Z",
+						"Power": 20,
+						"DeviceID": "M5-22-solar-1",
+						"DeviceType": "solar"
+					}
+				]
+			},
+			{
+				"Bucket": "2025-09-22T19:42:00Z",
+				"Logs": [
+					{
+						"Bucket": "2025-09-22T19:42:00Z",
+						"Timestamp": "2025-09-22T19:43:12.029Z",
+						"Power": 20,
+						"DeviceID": "M5-22-solar-1",
+						"DeviceType": "solar"
+					}
+				]
+			}
+		]
+	},
+	"M5-22-solar-2": {
+		"DeviceID": "M5-22-solar-2",
+		"DeviceType": "solar",
+		"Buckets": [
+			{
+				"Bucket": "2025-09-22T19:27:00Z",
+				"Logs": [
+					{
+						"Bucket": "2025-09-22T19:27:00Z",
+						"Timestamp": "2025-09-22T19:27:30.308Z",
+						"Power": 20,
+						"DeviceID": "M5-22-solar-2",
+						"DeviceType": "solar"
+					}
+				]
+			}
+		]
+	}
+}

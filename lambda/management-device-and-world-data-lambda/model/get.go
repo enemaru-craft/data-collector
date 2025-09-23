@@ -527,6 +527,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 				} else {
 					// 最初出ない場合は時間の区切りをまたぐので先程計算した値を使う
 					powerAtStart = frontMidpoint[deviceID][bucketStart]
+					fmt.Println(powerAtStart)
 				}
 
 				// 実際に区切りの最初の部分の面積を計算

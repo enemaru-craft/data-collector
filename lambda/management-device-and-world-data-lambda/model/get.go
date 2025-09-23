@@ -538,13 +538,10 @@ func (repo *ManagementRepository) GetPowerHistory(
 					// 最初でない場合は台形で計算する
 					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
 					bucketSumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
-
-					fmt.Println(bucketSumWs / 3600)
 				}
 
 				// 残りは普通に台形で計算
 				for i := 1; i < len(logs); i++ {
-					fmt.Println("for totta")
 					prev := logs[i-1]
 					curr := logs[i]
 
@@ -558,9 +555,6 @@ func (repo *ManagementRepository) GetPowerHistory(
 				}
 
 				if idx != len(device.Buckets)-1 {
-					fmt.Println("hoge")
-					fmt.Println(idx)
-					fmt.Println(len(device.Buckets))
 					// 最後の部分は台形で計算する
 					duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
 					bucketSumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration

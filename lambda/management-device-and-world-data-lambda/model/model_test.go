@@ -91,46 +91,44 @@ func TestGetPowerHistory(t *testing.T) {
 		assert.Equal(t, []float64{0.625}, result.Geothermal)
 	})
 
-	//	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
-	//		sessionId := "test-session"
-	//		bucketMinutes := 3
-	//
-	//		// モックトランザクションを開始
-	//		mock.ExpectBegin()
-	//		tx, err := db.Begin()
-	//		assert.NoError(t, err)
-	//		defer tx.Rollback()
-	//
-	//		// モックの期待値設定 - M5-22-solar-1のデータを模擬
-	//		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
-	//			AddRow(
-	//				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-	//				time.Date(2025, 9, 22, 19, 27, 33, 872000000, time.UTC),
-	//				20.0,
-	//				"M5-22-solar-1",
-	//				"solar",
-	//			).
-	//			AddRow(
-	//				time.Date(2025, 9, 22, 19, 42, 0, 0, time.UTC),
-	//				time.Date(2025, 9, 22, 19, 43, 12, 29000000, time.UTC),
-	//				20.0,
-	//				"M5-22-solar-1",
-	//				"solar",
-	//			)
-	//
-	//		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
-	//
-	//		// テスト実行
-	//		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
-	//
-	//		fmt.Println(result)
-	//
-	//		// 検証
-	//		assert.NoError(t, err)
-	//		assert.NotNil(t, result)
-	//
-	//		assert.NoError(t, mock.ExpectationsWereMet())
-	//	})
+	t.Run("複数バケット、境界をまたぐテスト", func(t *testing.T) {
+		sessionId := "test-session"
+		bucketMinutes := 1
+
+		mock.ExpectBegin()
+		tx, err := db.Begin()
+		assert.NoError(t, err)
+		defer tx.Rollback()
+
+		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
+				20.0,
+				"M5-22-geothermal-1",
+				"geothermal",
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
+				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
+				80.0,
+				"M5-22-geothermal-1",
+				"geothermal",
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+
+		// テスト実行
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+
+		fmt.Println(result)
+
+		// 検証
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 // エラーケースのテスト
@@ -145,7 +143,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 
 	t.Run("SQLエラーのテスト", func(t *testing.T) {
 		sessionId := "test-session"
-		bucketMinutes := 3
+		bucketMinutes := 1
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()
@@ -164,7 +162,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 
 	t.Run("空データのテスト", func(t *testing.T) {
 		sessionId := "test-session"
-		bucketMinutes := 3
+		bucketMinutes := 1
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()

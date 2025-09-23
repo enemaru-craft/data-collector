@@ -451,7 +451,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
 
 			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
-			rearMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
+			rearMidpoint[deviceID][prevBucket.Bucket] = powerAtBoundary
 		}
 	}
 
@@ -526,11 +526,7 @@ func (repo *ManagementRepository) GetPowerHistory(
 					powerAtStart = logs[0].Power
 				} else {
 					// 最初出ない場合は時間の区切りをまたぐので先程計算した値を使う
-					if v, ok := frontMidpoint[deviceID][bucketStart]; ok {
-						powerAtStart = v
-					} else {
-						powerAtStart = logs[0].Power
-					}
+					powerAtStart = frontMidpoint[deviceID][bucketStart]
 				}
 
 				// 実際に区切りの最初の部分の面積を計算
@@ -539,13 +535,16 @@ func (repo *ManagementRepository) GetPowerHistory(
 					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
 					bucketSumWs += powerAtStart * duration
 				} else {
-					// 最初出ない場合は台形で計算する
+					// 最初でない場合は台形で計算する
 					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
 					bucketSumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
+
+					fmt.Println(bucketSumWs / 3600)
 				}
 
 				// 残りは普通に台形で計算
 				for i := 1; i < len(logs); i++ {
+					fmt.Println("for totta")
 					prev := logs[i-1]
 					curr := logs[i]
 
@@ -558,9 +557,14 @@ func (repo *ManagementRepository) GetPowerHistory(
 					bucketSumWs += area
 				}
 
-				// 最後の部分は台形で計算する
-				duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
-				bucketSumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
+				if idx != len(device.Buckets)-1 {
+					fmt.Println("hoge")
+					fmt.Println(idx)
+					fmt.Println(len(device.Buckets))
+					// 最後の部分は台形で計算する
+					duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
+					bucketSumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
+				}
 
 				bucketPowerResult[deviceID][bucketStart] = bucketSumWs / 3600.0 // Ws -> Wh
 			}

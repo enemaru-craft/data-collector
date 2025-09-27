@@ -5,18 +5,24 @@ import (
 	"database/sql"
 	"fmt"
 	"power-manager/custmerr"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type LogRepository struct {
 	db *sql.DB
+	dc *dynamodb.Client
 }
 
-func NewLogRepository(db *sql.DB) *LogRepository {
-	return &LogRepository{db: db}
+func NewLogRepository(db *sql.DB, dc *dynamodb.Client) *LogRepository {
+	return &LogRepository{db: db, dc: dc}
 }
 
 type LogRepositoryInterface interface {
 	RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, sessionID, deviceID, gpsLat, gpsLon string, power float32) error
+	RegisterNewPowerLogToDynamoDB(ctx context.Context, sessionID, deviceID, gpsLat, gpsLon string, power float32) error
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 
@@ -84,6 +90,25 @@ func (r *LogRepository) RegisterNewPowerLog(ctx context.Context, tx *sql.Tx, ses
 		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to register power data: %w", err)}
 	}
 
+	return nil
+}
+
+func (r *LogRepository) RegisterNewPowerLogToDynamoDB(ctx context.Context, sessionID, deviceID, gpsLat, gpsLon string, power float32) error {
+	input := &dynamodb.PutItemInput{
+		TableName: aws.String("tmp_table"),
+		Item: map[string]types.AttributeValue{
+			"session_id": &types.AttributeValueMemberS{Value: sessionID},
+			"device_id":  &types.AttributeValueMemberS{Value: deviceID},
+			"gps_lat":    &types.AttributeValueMemberS{Value: gpsLat},
+			"gps_lon":    &types.AttributeValueMemberS{Value: gpsLon},
+			"power":      &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", power)},
+		},
+	}
+
+	_, err := r.dc.PutItem(ctx, input)
+	if err != nil {
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to put item to DynamoDB: %w", err)}
+	}
 	return nil
 }
 

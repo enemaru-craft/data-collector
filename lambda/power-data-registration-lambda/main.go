@@ -17,11 +17,18 @@ func handler(ctx context.Context, event json.RawMessage) (string, error) {
 }
 
 func init() {
+	// Lambdaの特性上仕方なくここで初期化している｡もしいい方法があるなら変える｡
 	db, err := model.InitDB()
 	if err != nil {
 		log.Fatalf("Database initialization failed: %v", err)
 	}
-	r = router.NewRouter(db)
+
+	dc, err := model.InitDynamoDB()
+	if err != nil {
+		log.Fatalf("DynamoDB initialization failed: %v", err)
+	}
+
+	r = router.NewRouter(db, dc)
 }
 
 func main() {

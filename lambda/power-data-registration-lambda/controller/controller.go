@@ -9,11 +9,12 @@ import (
 )
 
 type Payload struct {
-	SessionID string  `json:"sessionId"`
-	DeviceID  string  `json:"deviceId"`
-	Power     float32 `json:"power"`
-	GpsLat    string  `json:"gpsLat"`
-	GpsLon    string  `json:"gpsLon"`
+	SessionID  string  `json:"sessionId"`
+	DeviceID   string  `json:"deviceId"`
+	DeviceType string  `json:"deviceType"`
+	Power      float32 `json:"power"`
+	GpsLat     string  `json:"gpsLat"`
+	GpsLon     string  `json:"gpsLon"`
 }
 
 type LogController struct {
@@ -24,13 +25,13 @@ func NewLogController(repo model.LogRepositoryInterface) *LogController {
 	return &LogController{repo: repo}
 }
 
-func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.RawMessage) (string, error) {
+func (c *LogController) RegisterPower(ctx context.Context, event json.RawMessage) (string, error) {
 	var payload Payload
 	if err := json.Unmarshal(event, &payload); err != nil {
 		return "Failed to parse payload", err
 	}
 
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
+	if payload.SessionID == "" || payload.DeviceID == "" || payload.DeviceType == "" || payload.Power < 0 || payload.GpsLat == "" || payload.GpsLon == "" {
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
@@ -59,162 +60,11 @@ func (c *LogController) RegisterGeothermalPower(ctx context.Context, event json.
 		}
 	}
 
-	tx.Commit()
-
-	return "Success", nil
-}
-
-func (c *LogController) RegisterSolarPower(ctx context.Context, event json.RawMessage) (string, error) {
-	var payload Payload
-	if err := json.Unmarshal(event, &payload); err != nil {
-		return "Failed to parse payload", err
-	}
-
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
-		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
-	}
-
-	calculatedPower := payload.Power * 2
-
-	tx, err := c.repo.BeginTx(ctx, nil)
-	if err != nil {
-		return "Failed to begin transaction: " + err.Error(), err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-		}
-	}()
-
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLogToDynamoDB(ctx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
 	if err != nil {
 		tx.Rollback()
-		var lErr *custmerr.LogicalErr
 		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return "Session or device not found: " + err.Error(), nil
-		case errors.As(err, &tErr):
-			return "Technical error occurred: " + err.Error(), nil
-		}
-	}
-
-	tx.Commit()
-
-	return "Success", nil
-}
-
-func (c *LogController) RegisterWindPower(ctx context.Context, event json.RawMessage) (string, error) {
-	var payload Payload
-	if err := json.Unmarshal(event, &payload); err != nil {
-		return "Failed to parse payload", err
-	}
-
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
-		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
-	}
-
-	calculatedPower := payload.Power * 2
-
-	tx, err := c.repo.BeginTx(ctx, nil)
-	if err != nil {
-		return "Failed to begin transaction: " + err.Error(), err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-		}
-	}()
-
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
-	if err != nil {
-		tx.Rollback()
-		var lErr *custmerr.LogicalErr
-		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return "Session or device not found: " + err.Error(), nil
-		case errors.As(err, &tErr):
-			return "Technical error occurred: " + err.Error(), nil
-		}
-	}
-
-	tx.Commit()
-
-	return "Success", nil
-}
-
-func (c *LogController) RegisterHydrogenPower(ctx context.Context, event json.RawMessage) (string, error) {
-	var payload Payload
-	if err := json.Unmarshal(event, &payload); err != nil {
-		return "Failed to parse payload", err
-	}
-
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
-		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
-	}
-
-	calculatedPower := payload.Power * 2
-
-	tx, err := c.repo.BeginTx(ctx, nil)
-	if err != nil {
-		return "Failed to begin transaction: " + err.Error(), err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-		}
-	}()
-
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
-	if err != nil {
-		tx.Rollback()
-		var lErr *custmerr.LogicalErr
-		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return "Session or device not found: " + err.Error(), nil
-		case errors.As(err, &tErr):
-			return "Technical error occurred: " + err.Error(), nil
-		}
-	}
-
-	tx.Commit()
-
-	return "Success", nil
-}
-
-func (c *LogController) RegisterHandCrankPower(ctx context.Context, event json.RawMessage) (string, error) {
-	var payload Payload
-	if err := json.Unmarshal(event, &payload); err != nil {
-		return "Failed to parse payload", err
-	}
-
-	if payload.SessionID == "" || payload.DeviceID == "" || payload.Power <= 0 || payload.GpsLat == "" || payload.GpsLon == "" {
-		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
-	}
-
-	calculatedPower := payload.Power * 2
-
-	tx, err := c.repo.BeginTx(ctx, nil)
-	if err != nil {
-		return "Failed to begin transaction: " + err.Error(), err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-		}
-	}()
-
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
-	if err != nil {
-		tx.Rollback()
-		var lErr *custmerr.LogicalErr
-		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return "Session or device not found: " + err.Error(), nil
-		case errors.As(err, &tErr):
+		if errors.As(err, &tErr) {
 			return "Technical error occurred: " + err.Error(), nil
 		}
 	}

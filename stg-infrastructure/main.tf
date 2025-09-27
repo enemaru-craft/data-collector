@@ -17,3 +17,7 @@ module "api_gateway" {
   stg_management_device_and_world_data_lambda_function_name = module.lambda.stg_management_device_and_world_data_lambda_function_name
   stg_management_device_and_world_data_lambda_function_arn  = module.lambda.stg_management_device_and_world_data_lambda_function_arn
 }
+
+module "dynamodb" {
+  source = "./modules/dynamodb"
+}

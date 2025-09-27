@@ -23,6 +23,11 @@ resource "aws_iam_role_policy" "stg_attach_log_policy_to_lambda_exec_role" {
       {
         Effect = "Allow",
         Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",

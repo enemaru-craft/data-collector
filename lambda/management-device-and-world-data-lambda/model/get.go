@@ -641,21 +641,3 @@ type ResultData struct {
 	DeviceType string
 	SumPower   float64
 }
-
-func printDeviceMap(deviceMap map[string]*DeviceBuckets) {
-	b, err := json.Marshal(deviceMap) // Indent なし
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	fmt.Println(string(b))
-}
-
-func printMidpoint(midpoint map[string]map[time.Time]float64) {
-	b, err := json.Marshal(midpoint) // Indent なし
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	fmt.Println(string(b))
-}

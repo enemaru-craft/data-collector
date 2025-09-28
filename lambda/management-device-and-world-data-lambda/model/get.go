@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -642,30 +643,37 @@ type ResultData struct {
 }
 
 func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionId string) (PowerChartData, error) {
+	// 10秒間隔で各デバイスの最新発電量を取得
 	stmt, err := tx.PrepareContext(ctx, `
         SELECT
-            to_timestamp(
-                FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / (3*60)) * 3*60
-            ) AS bucket,
-            d.device_type,
-            AVG(pl.power) AS avg_power
-        FROM
-			power_logs pl
-        JOIN
-			session_devices sd
-		ON
-			pl.session_device_id = sd.id
-        JOIN
-			devices d
-		ON
-			sd.device_id = d.device_id
-        WHERE
-			sd.session_id = $1
-        GROUP BY
-			bucket, d.device_type
+            bucket,
+            device_id,
+            device_type,
+            power
+        FROM (
+            SELECT
+                to_timestamp(
+                    FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / 10) * 10
+                ) AT TIME ZONE 'UTC' AS bucket,
+                d.device_id,
+                d.device_type,
+                pl.power,
+                ROW_NUMBER() OVER (
+                    PARTITION BY d.device_id, to_timestamp(FLOOR(EXTRACT(EPOCH FROM pl.timestamp) / 10) * 10)
+                    ORDER BY pl.timestamp DESC
+                ) as rn
+            FROM
+                power_logs pl
+            JOIN
+                session_devices sd ON pl.session_device_id = sd.id
+            JOIN
+                devices d ON sd.device_id = d.device_id
+            WHERE
+                sd.session_id = $1
+        ) ranked_data
+        WHERE rn = 1
         ORDER BY
-			bucket
-		ASC, d.device_type;
+            bucket ASC, device_id;
     `)
 	if err != nil {
 		return PowerChartData{}, fmt.Errorf("failed to prepare statement: %w", err)
@@ -678,25 +686,46 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	}
 	defer rows.Close()
 
-	// 時間スロットごとのマップを作成
-	timeMap := make(map[string]map[string]float64)
+	// 10秒間隔×デバイス別のマップを作成（各デバイスの最新データのみ）
+	bucketDeviceMap := make(map[string]map[string]float64) // bucket -> deviceID -> power
+	bucketTypeMap := make(map[string]map[string]float64)   // timeLabel -> deviceType -> total power
+	bucketToLabelMap := make(map[string]string)            // bucketStr -> timeLabel
 	var timeLabels []string
+	timeSet := make(map[string]bool)
 
 	for rows.Next() {
 		var bucket time.Time
-		var deviceType string
-		var avgPower float64
-		if err := rows.Scan(&bucket, &deviceType, &avgPower); err != nil {
+		var deviceID, deviceType string
+		var power float64
+		if err := rows.Scan(&bucket, &deviceID, &deviceType, &power); err != nil {
 			return PowerChartData{}, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		t := bucket.Format(time.RFC3339)
-		if _, exists := timeMap[t]; !exists {
-			timeMap[t] = make(map[string]float64)
-			timeLabels = append(timeLabels, t)
+		bucketStr := bucket.Format(time.RFC3339)
+		timeLabel := bucket.Format("15:04:05") // 時:分:秒 形式
+
+		// 時間ラベルを記録
+		if !timeSet[bucketStr] {
+			timeSet[bucketStr] = true
+			timeLabels = append(timeLabels, timeLabel)
+			bucketToLabelMap[bucketStr] = timeLabel
 		}
-		timeMap[t][deviceType] = avgPower
+
+		// デバイス別発電量を記録
+		if _, exists := bucketDeviceMap[bucketStr]; !exists {
+			bucketDeviceMap[bucketStr] = make(map[string]float64)
+		}
+		bucketDeviceMap[bucketStr][deviceID] = power
+
+		// deviceType別に加算（timeLabelをキーとして使用）
+		if _, exists := bucketTypeMap[timeLabel]; !exists {
+			bucketTypeMap[timeLabel] = make(map[string]float64)
+		}
+		bucketTypeMap[timeLabel][deviceType] += power
 	}
+
+	// 時間ラベルをソート
+	sort.Strings(timeLabels)
 
 	// PowerChartData に変換
 	chartData := PowerChartData{
@@ -708,16 +737,16 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	}
 
 	for i, t := range timeLabels {
-		if val, ok := timeMap[t]["geothermal"]; ok {
+		if val, ok := bucketTypeMap[t]["geothermal"]; ok {
 			chartData.Geothermal[i] = val
 		}
-		if val, ok := timeMap[t]["hydrogen"]; ok {
+		if val, ok := bucketTypeMap[t]["hydrogen"]; ok {
 			chartData.Hydro[i] = val
 		}
-		if val, ok := timeMap[t]["wind"]; ok {
+		if val, ok := bucketTypeMap[t]["wind"]; ok {
 			chartData.Wind[i] = val
 		}
-		if val, ok := timeMap[t]["solar"]; ok {
+		if val, ok := bucketTypeMap[t]["solar"]; ok {
 			chartData.Solar[i] = val
 		}
 	}

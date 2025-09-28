@@ -35,8 +35,6 @@ func (c *LogController) RegisterPower(ctx context.Context, event json.RawMessage
 		return "Invalid payload: missing required fields", errors.New("invalid payload: missing required fields")
 	}
 
-	calculatedPower := payload.Power * 2
-
 	tx, err := c.repo.BeginTx(ctx, nil)
 	if err != nil {
 		return "Failed to begin transaction: " + err.Error(), err
@@ -47,7 +45,7 @@ func (c *LogController) RegisterPower(ctx context.Context, event json.RawMessage
 		}
 	}()
 
-	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLog(ctx, tx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -59,8 +57,7 @@ func (c *LogController) RegisterPower(ctx context.Context, event json.RawMessage
 			return "Technical error occurred: " + err.Error(), nil
 		}
 	}
-
-	err = c.repo.RegisterNewPowerLogToDynamoDB(ctx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, calculatedPower)
+	err = c.repo.RegisterNewPowerLogToDynamoDB(ctx, payload.SessionID, payload.DeviceID, payload.GpsLat, payload.GpsLon, payload.Power)
 	if err != nil {
 		tx.Rollback()
 		var tErr *custmerr.TechnicalErr

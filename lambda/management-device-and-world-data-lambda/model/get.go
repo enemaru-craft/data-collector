@@ -501,7 +501,7 @@ func (repo *ManagementRepository) calculateTotalPower(
 				frontDuration := logs[0].Timestamp.Sub(bucket.Bucket).Seconds()
 				sumWs += logs[0].Power * frontDuration
 
-				bucketEndTime := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Minute)
+				bucketEndTime := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Second)
 				rearDuration := bucketEndTime.Sub(logs[len(logs)-1].Timestamp).Seconds()
 				sumWs += logs[len(logs)-1].Power * rearDuration
 
@@ -517,7 +517,7 @@ func (repo *ManagementRepository) calculateTotalPower(
 				}
 
 				bucketStart := bucket.Bucket
-				bucketStartEnd := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Minute)
+				bucketStartEnd := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Second)
 				bucketSumWs := 0.0
 
 				var powerAtStart float64
@@ -735,7 +735,7 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	// 時間ラベルをソート
 	sort.Strings(timeLabels)
 
-	totalPower, err := repo.calculateTotalPower(ctx, tx, sessionId, 1)
+	totalPower, err := repo.calculateTotalPower(ctx, tx, sessionId, 10)
 	if err != nil {
 		return PowerChartData{}, fmt.Errorf("failed to calculate total power: %w", err)
 	}

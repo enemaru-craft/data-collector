@@ -122,47 +122,21 @@ func (repo *ManagementRepository) CreateNewWorldIfNotExists(ctx context.Context,
 }
 
 func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error) {
-	// 一旦すべての発電方法の最新発電量を計算する
-	getAllPowerStmt, err := tx.PrepareContext(ctx, `
-		SELECT DISTINCT ON (d.device_type)
-			d.device_type,pl.power
-		FROM
-			power_logs pl
-		JOIN
-			session_devices sd
-		ON
-			pl.session_device_id = sd.id
-		JOIN
-			devices d
-		ON
-			sd.device_id = d.device_id
-		WHERE
-			sd.session_id = $1
-		ORDER BY
-			d.device_type,pl.timestamp DESC
-	`)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get all power statement: %w", err)}
-	}
-	defer getAllPowerStmt.Close()
-
-	rows, err := getAllPowerStmt.QueryContext(ctx, sessionID)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query all power: %w", err)}
-	}
-	defer rows.Close()
-
+	// DynamoDBから最新の発電量を取得
 	latestPower := make(map[string]float32)
 	var allPower float32
 
-	for rows.Next() {
-		var deviceType string
-		var power float32
-		if err := rows.Scan(&deviceType, &power); err != nil {
-			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan row: %w", err)}
+	// 各デバイスタイプについてDynamoDBから最新データを取得
+	deviceTypes := []string{"solar", "geothermal", "hydrogen", "wind", "fire"}
+	for _, deviceType := range deviceTypes {
+		response, err := repo.GetMultipleDevicesPowerDataFromDynamoDB(ctx, deviceType, sessionID)
+		if err != nil {
+			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get power data from DynamoDB: %w", err)}
 		}
-		latestPower[deviceType] = power
-		allPower += power
+		if response.TotalPower > 0 {
+			latestPower[deviceType] = response.TotalPower
+			allPower += response.TotalPower
+		}
 	}
 
 	// 現在の世界の状態を取得
@@ -279,47 +253,21 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 }
 
 func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error) {
-	// 一旦すべての発電方法の最新発電量を計算する
-	getAllPowerStmt, err := tx.PrepareContext(ctx, `
-		SELECT DISTINCT ON (d.device_type)
-			d.device_type,pl.power
-		FROM
-			power_logs pl
-		JOIN
-			session_devices sd
-		ON
-			pl.session_device_id = sd.id
-		JOIN
-			devices d
-		ON
-			sd.device_id = d.device_id
-		WHERE
-			sd.session_id = $1
-		ORDER BY
-			d.device_type,pl.timestamp DESC
-	`)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get all power statement: %w", err)}
-	}
-	defer getAllPowerStmt.Close()
-
-	rows, err := getAllPowerStmt.QueryContext(ctx, sessionID)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to query all power: %w", err)}
-	}
-	defer rows.Close()
-
+	// DynamoDBから最新の発電量を取得
 	latestPower := make(map[string]float32)
 	var allPower float32
 
-	for rows.Next() {
-		var deviceType string
-		var power float32
-		if err := rows.Scan(&deviceType, &power); err != nil {
-			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan row: %w", err)}
+	// 各デバイスタイプについてDynamoDBから最新データを取得
+	deviceTypes := []string{"solar", "geothermal", "hydrogen", "wind", "fire"}
+	for _, deviceType := range deviceTypes {
+		response, err := repo.GetMultipleDevicesPowerDataFromDynamoDB(ctx, deviceType, sessionID)
+		if err != nil {
+			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get power data from DynamoDB: %w", err)}
 		}
-		latestPower[deviceType] = power
-		allPower += power
+		if response.TotalPower > 0 {
+			latestPower[deviceType] = response.TotalPower
+			allPower += response.TotalPower
+		}
 	}
 
 	// 現在の世界の状態を取得

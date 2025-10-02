@@ -224,7 +224,7 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,total_power,surplus_power,timestamp)
+			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,timestamp)
 		VALUES
 			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
 	`)
@@ -238,7 +238,7 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, villagersTextJSON, allPower, surplusPower)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}
@@ -368,7 +368,7 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_facility_enabled,is_blackout,total_power,surplus_power,villagers_text,timestamp)
+			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,timestamp)
 		VALUES
 			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
 	`)
@@ -382,7 +382,7 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, allPower, surplusPower, villagersTextJSON)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}

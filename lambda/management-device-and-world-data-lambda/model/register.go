@@ -142,7 +142,7 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	// 現在の世界の状態を取得
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,villagers_text
+			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text
 		FROM
 			world_state
 		WHERE
@@ -158,10 +158,10 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout bool
+	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
 	var villagersTextBytes []byte
 
-	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isBlackout, &villagersTextBytes)
+	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isBlackout, &isHouseEnabled, &isFacilityEnabled, &villagersTextBytes)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
 	}
@@ -181,6 +181,10 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		isTrainEnabled = true
 	case "factory":
 		isFactoryEnabled = true
+	case "house":
+		isHouseEnabled = true
+	case "facility":
+		isFacilityEnabled = true
 	default:
 		return CurrentWorldState{}, fmt.Errorf("unknown equipment type: %s", equipment)
 	}
@@ -196,12 +200,20 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	if isFactoryEnabled {
 		newPowerConsumption += 7.0
 	}
+	if isHouseEnabled {
+		newPowerConsumption += 300.0
+	}
+	if isFacilityEnabled {
+		newPowerConsumption += 1015.0
+	}
 
 	var surplusPower float32
 	if newPowerConsumption > allPower {
 		isLightEnabled = false
 		isTrainEnabled = false
 		isFactoryEnabled = false
+		isHouseEnabled = false
+		isFacilityEnabled = false
 		isBlackout = true
 		surplusPower = 0.0
 	} else {
@@ -212,9 +224,9 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,villagers_text,total_power,surplus_power,timestamp)
+			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,total_power,surplus_power,timestamp)
 		VALUES
-			($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
 	`)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
@@ -226,16 +238,18 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, villagersTextJSON, allPower, surplusPower)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, villagersTextJSON, allPower, surplusPower)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}
 
 	state := State{
-		IsLightEnabled:   isLightEnabled,
-		IsTrainEnabled:   isTrainEnabled,
-		IsFactoryEnabled: isFactoryEnabled,
-		IsBlackout:       isBlackout,
+		IsLightEnabled:    isLightEnabled,
+		IsTrainEnabled:    isTrainEnabled,
+		IsFactoryEnabled:  isFactoryEnabled,
+		IsHouseEnabled:    isHouseEnabled,
+		IsFacilityEnabled: isFacilityEnabled,
+		IsBlackout:        isBlackout,
 	}
 
 	variables := Variables{
@@ -273,7 +287,7 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	// 現在の世界の状態を取得
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,villagers_text
+			is_light_enabled,is_train_enabled,is_factory_enabled,is_house_enabled,is_facility_enabled,is_blackout,villagers_text
 		FROM
 			world_state
 		WHERE
@@ -289,10 +303,10 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout bool
+	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
 	var villagersTextBytes []byte
 
-	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isBlackout, &villagersTextBytes)
+	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isHouseEnabled, &isFacilityEnabled, &isBlackout, &villagersTextBytes)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
 	}
@@ -312,6 +326,10 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 		isTrainEnabled = false
 	case "factory":
 		isFactoryEnabled = false
+	case "house":
+		isHouseEnabled = false
+	case "facility":
+		isFacilityEnabled = false
 	default:
 		return CurrentWorldState{}, fmt.Errorf("unknown equipment type: %s", equipment)
 	}
@@ -326,6 +344,12 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	if isFactoryEnabled {
 		currentPowerConsumption += 7.0
 	}
+	if isHouseEnabled {
+		currentPowerConsumption += 300.0
+	}
+	if isFacilityEnabled {
+		currentPowerConsumption += 1015.0
+	}
 
 	var surplusPower float32
 	if currentPowerConsumption > allPower {
@@ -333,6 +357,8 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 		isLightEnabled = false
 		isTrainEnabled = false
 		isFactoryEnabled = false
+		isHouseEnabled = false
+		isFacilityEnabled = false
 		surplusPower = 0.0
 	} else {
 		isBlackout = false
@@ -342,9 +368,9 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,total_power,surplus_power,villagers_text,timestamp)
+			is_factory_enabled,is_facility_enabled,is_blackout,total_power,surplus_power,villagers_text,timestamp)
 		VALUES
-			($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
 	`)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
@@ -362,10 +388,12 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	}
 
 	state := State{
-		IsLightEnabled:   isLightEnabled,
-		IsTrainEnabled:   isTrainEnabled,
-		IsFactoryEnabled: isFactoryEnabled,
-		IsBlackout:       isBlackout,
+		IsLightEnabled:    isLightEnabled,
+		IsTrainEnabled:    isTrainEnabled,
+		IsFactoryEnabled:  isFactoryEnabled,
+		IsHouseEnabled:    isHouseEnabled,
+		IsFacilityEnabled: isFacilityEnabled,
+		IsBlackout:        isBlackout,
 	}
 
 	variables := Variables{

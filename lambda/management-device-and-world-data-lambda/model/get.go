@@ -107,10 +107,12 @@ type CurrentWorldState struct {
 }
 
 type State struct {
-	IsLightEnabled   bool `json:"isLightEnabled"`
-	IsTrainEnabled   bool `json:"isTrainEnabled"`
-	IsFactoryEnabled bool `json:"isFactoryEnabled"`
-	IsBlackout       bool `json:"isBlackout"`
+	IsLightEnabled    bool `json:"isLightEnabled"`
+	IsTrainEnabled    bool `json:"isTrainEnabled"`
+	IsFactoryEnabled  bool `json:"isFactoryEnabled"`
+	IsHouseEnabled    bool `json:"isHouseEnabled"`
+	IsFacilityEnabled bool `json:"isFacilityEnabled"`
+	IsBlackout        bool `json:"isBlackout"`
 }
 
 type Variables struct {
@@ -134,7 +136,7 @@ type DeviceDetail struct {
 func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error) {
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,villagers_text
+			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text
 		FROM
 			world_state
 		WHERE
@@ -150,7 +152,7 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout bool
+	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
 	var villagersTextBytes []byte
 
 	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(
@@ -158,6 +160,8 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		&isTrainEnabled,
 		&isFactoryEnabled,
 		&isBlackout,
+		&isHouseEnabled,
+		&isFacilityEnabled,
 		&villagersTextBytes,
 	)
 	if err != nil {
@@ -191,13 +195,19 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 
 	var currentPowerConsumption float32
 	if isLightEnabled {
-		currentPowerConsumption += 10.0
-	}
-	if isTrainEnabled {
 		currentPowerConsumption += 5.0
 	}
+	if isTrainEnabled {
+		currentPowerConsumption += 410.0
+	}
 	if isFactoryEnabled {
-		currentPowerConsumption += 7.0
+		currentPowerConsumption += 300.0
+	}
+	if isHouseEnabled {
+		currentPowerConsumption += 300.0
+	}
+	if isFacilityEnabled {
+		currentPowerConsumption += 1015.0
 	}
 
 	var surplusPower float32
@@ -206,6 +216,8 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		isLightEnabled = false
 		isTrainEnabled = false
 		isFactoryEnabled = false
+		isHouseEnabled = false
+		isFacilityEnabled = false
 		surplusPower = 0.0
 	} else {
 		isBlackout = false
@@ -215,9 +227,9 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
 			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,total_power,surplus_power,villagers_text,timestamp)
+			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,timestamp)
 		VALUES
-			($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
 	`)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
@@ -229,16 +241,18 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, allPower, surplusPower, villagersTextJSON)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}
 
 	state := State{
-		IsLightEnabled:   isLightEnabled,
-		IsTrainEnabled:   isTrainEnabled,
-		IsFactoryEnabled: isFactoryEnabled,
-		IsBlackout:       isBlackout,
+		IsLightEnabled:    isLightEnabled,
+		IsTrainEnabled:    isTrainEnabled,
+		IsFactoryEnabled:  isFactoryEnabled,
+		IsHouseEnabled:    isHouseEnabled,
+		IsFacilityEnabled: isFacilityEnabled,
+		IsBlackout:        isBlackout,
 	}
 
 	variables := Variables{

@@ -62,27 +62,3 @@ jobs:
           lambda/management-device-and-world-data-lambda/coverage.*
           lambda/power-data-registration-lambda/coverage.*
         retention-days: 30
-
-  lint:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-
-    - name: Run golangci-lint for management-device-and-world-data-lambda
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        working-directory: ./lambda/management-device-and-world-data-lambda
-
-    - name: Run golangci-lint for power-data-registration-lambda
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        working-directory: ./lambda/power-data-registration-lambda

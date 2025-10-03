@@ -1,0 +1,88 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main, develop, feat/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go-version: ['1.21', '1.22']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Install dependencies for management-device-and-world-data-lambda
+      working-directory: ./lambda/management-device-and-world-data-lambda
+      run: go mod download
+
+    - name: Install dependencies for power-data-registration-lambda
+      working-directory: ./lambda/power-data-registration-lambda
+      run: go mod download
+
+    - name: Run tests for management-device-and-world-data-lambda
+      working-directory: ./lambda/management-device-and-world-data-lambda
+      run: |
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+
+    - name: Run tests for power-data-registration-lambda
+      working-directory: ./lambda/power-data-registration-lambda
+      run: |
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-reports-go${{ matrix.go-version }}
+        path: |
+          lambda/management-device-and-world-data-lambda/coverage.*
+          lambda/power-data-registration-lambda/coverage.*
+        retention-days: 30
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Run golangci-lint for management-device-and-world-data-lambda
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        working-directory: ./lambda/management-device-and-world-data-lambda
+
+    - name: Run golangci-lint for power-data-registration-lambda
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        working-directory: ./lambda/power-data-registration-lambda

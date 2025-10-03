@@ -353,7 +353,7 @@ type DeviceBuckets struct {
 	Buckets    []*DeviceBucket
 }
 
-func (repo *ManagementRepository) calculateTotalPower(
+func (repo *ManagementRepository) CalculateTotalPower(
 	ctx context.Context,
 	tx *sql.Tx,
 	sessionId string,
@@ -782,7 +782,7 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	// 時間ラベルをソート
 	sort.Strings(timeLabels)
 
-	totalPower, err := repo.calculateTotalPower(ctx, tx, sessionId, 10)
+	totalPower, err := repo.CalculateTotalPower(ctx, tx, sessionId, 10)
 	if err != nil {
 		return PowerChartData{}, fmt.Errorf("failed to calculate total power: %w", err)
 	}

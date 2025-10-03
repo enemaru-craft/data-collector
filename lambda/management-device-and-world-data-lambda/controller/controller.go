@@ -549,5 +549,25 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	}()
 
-	currentState, err := c.repo.GetResult(ctx, tx, sessionId)
+	// 総発電量
+	totalPower, err := c.repo.CalculateTotalPower(ctx, tx, sessionId, 10)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
 }

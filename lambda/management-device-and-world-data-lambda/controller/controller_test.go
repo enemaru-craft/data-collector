@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 
 	"data-manager/controller"
+	"data-manager/model"
 )
 
 type mockRepo struct{}
@@ -24,9 +25,9 @@ func (m *mockRepo) RegisterNewPowerGenerationModule(ctx context.Context, tx *sql
 	return nil
 }
 
-func (m *mockRepo) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, error) {
-	// float32のゼロ値とnilを返す
-	return 0, nil
+func (m *mockRepo) GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, string, string, error) {
+	// 更新されたシグネチャに合わせて4つの値を返す
+	return 0, "", "", nil
 }
 
 func (m *mockRepo) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
@@ -38,20 +39,40 @@ func (m *mockRepo) CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, se
 	return nil
 }
 
+func (m *mockRepo) GetMultipleDevicesPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (model.MultipleDevicePowerResponse, error) {
+	return model.MultipleDevicePowerResponse{}, nil
+}
+
+func (m *mockRepo) TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (model.CurrentWorldState, error) {
+	return model.CurrentWorldState{}, nil
+}
+
+func (m *mockRepo) TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (model.CurrentWorldState, error) {
+	return model.CurrentWorldState{}, nil
+}
+
+func (m *mockRepo) GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (model.CurrentWorldState, error) {
+	return model.CurrentWorldState{}, nil
+}
+
+func (m *mockRepo) GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (model.PowerChartData, error) {
+	return model.PowerChartData{}, nil
+}
+
 func TestGetLatestPower_ReturnErrorIfReceivedInvalidJSON(t *testing.T) {
 	ctr := controller.NewManagementController(&mockRepo{})
 
 	t.Run("device-typeがかけているとエラーが返ってくる", func(t *testing.T) {
 		req := events.APIGatewayV2HTTPRequest{
 			QueryStringParameters: map[string]string{
-				"session-id": "1",
+				"session_id": "1",
 			},
 		}
 
 		response, err := ctr.GetLatestPower(context.Background(), req)
 
-		if err == nil {
-			t.Fatal("クエリパラメータが欠けている場合はエラーを返す必要がある")
+		if err != nil {
+			t.Fatalf("予期しないエラーが発生しました: %v", err)
 		}
 
 		if response.StatusCode != 400 {
@@ -62,14 +83,14 @@ func TestGetLatestPower_ReturnErrorIfReceivedInvalidJSON(t *testing.T) {
 	t.Run("session-idがかけているとエラーが返ってくる", func(t *testing.T) {
 		req := events.APIGatewayV2HTTPRequest{
 			QueryStringParameters: map[string]string{
-				"device-type": "geothermal",
+				"device_type": "geothermal",
 			},
 		}
 
 		response, err := ctr.GetLatestPower(context.Background(), req)
 
-		if err == nil {
-			t.Fatal("クエリパラメータが欠けている場合はエラーを返す必要がある")
+		if err != nil {
+			t.Fatalf("予期しないエラーが発生しました: %v", err)
 		}
 
 		if response.StatusCode != 400 {
@@ -84,8 +105,8 @@ func TestGetLatestPower_ReturnErrorIfReceivedInvalidJSON(t *testing.T) {
 
 		response, err := ctr.GetLatestPower(context.Background(), req)
 
-		if err == nil {
-			t.Fatal("クエリパラメータが欠けている場合はエラーを返す必要がある")
+		if err != nil {
+			t.Fatalf("予期しないエラーが発生しました: %v", err)
 		}
 
 		if response.StatusCode != 400 {

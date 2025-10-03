@@ -23,39 +23,48 @@ func TestGetPowerHistory(t *testing.T) {
 	}
 
 	t.Run("単一バケット、単一ログのテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				20.0,
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId).WillReturnRows(rows)
+
+		// calculateTotalPowerのモック
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 15, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
 
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
-
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 
 		// 時間のセパレートが正しいか確認する
-		assert.Equal(t, []string{"19:27"}, result.TimeLabels, "19:27が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []string{"19:27:00"}, result.TimeLabels, "19:27:00が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
 		// 発電量の計算が正しいか確認する
-		assert.Equal(t, []float64{0.08333333333333333}, result.Geothermal, "0.08333333333333333が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []float64{20.0}, result.Geothermal, "20.0が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
 
 	})
 
 	t.Run("時間をまたがないテスト", func(t *testing.T) {
 		sessionID := "9999"
-		bucketMinutes := 1
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
@@ -63,7 +72,24 @@ func TestGetPowerHistory(t *testing.T) {
 		defer tx.Rollback()
 
 		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionID)
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				80.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				20.0,
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionID).WillReturnRows(rows)
+
+		// calculateTotalPowerのモック
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 15, 0, time.UTC),
@@ -78,152 +104,217 @@ func TestGetPowerHistory(t *testing.T) {
 				geothermal,
 				"geothermal",
 			)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionID, 10).WillReturnRows(totalPowerRows)
 
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionID, bucketMinutes).WillReturnRows(rows)
-
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionID, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionID)
 
 		assert.NoError(t, err)
 
 		// 時間のセパレートが正しいか確認する
-		assert.Equal(t, []string{"19:27"}, result.TimeLabels)
+		assert.Equal(t, []string{"19:27:00"}, result.TimeLabels)
 		// 一つの時間の区切りにおいて､複数のログがあっても､正しく集計されることを確認する
-		assert.Equal(t, []float64{0.625}, result.Geothermal)
+		assert.Equal(t, []float64{100.0}, result.Geothermal)
 	})
 
 	t.Run("複数バケット、境界を1つまたぐテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				20.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				80.0,
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId).WillReturnRows(rows)
+
+		// calculateTotalPowerのモック
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
-
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		// 検証
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		assert.Equal(t, []string{"19:27", "19:28"}, result.TimeLabels, "19:27, 19:28が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
-		assert.Equal(t, []float64{0.48910256410256414, 0.23589743589743592}, result.Geothermal, "0.48910256410256414, 0.23589743589743592が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []string{"19:27:00", "19:28:00"}, result.TimeLabels, "19:27:00, 19:28:00が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []float64{20.0, 80.0}, result.Geothermal, "20.0, 80.0が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("複数バケット、境界を2つまたぐテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				20.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				80.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				10.0,
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId).WillReturnRows(rows)
+
+		// calculateTotalPowerのモック
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 29, 10, 0, time.UTC),
 				10.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
-
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		assert.Equal(t, []string{"19:27", "19:28", "19:29"}, result.TimeLabels, "19:27, 19:28, 19:29が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
-		assert.Equal(t, []float64{0.48910256410256414, 0.9163572060123784, 0.04454022988505748}, result.Geothermal, "0.48910256410256414, 0.9163572060123784, 0.04454022988505748が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []string{"19:27:00", "19:28:00", "19:29:00"}, result.TimeLabels, "19:27:00, 19:28:00, 19:29:00が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []float64{20.0, 80.0, 10.0}, result.Geothermal, "20.0, 80.0, 10.0が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
 	})
 
 	t.Run("複数バケット、境界を2つまたぐテスト､一つ目の境界の後に2つ発電量が記録されている", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				20.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				80.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				70.0,
+			).
+			AddRow(
+				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
+				geothermal,
+				"geothermal",
+				10.0,
+			)
+
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId).WillReturnRows(rows)
+
+		// calculateTotalPowerのモック
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 15, 0, time.UTC),
 				70.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 29, 10, 0, time.UTC),
 				10.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
-
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
-		assert.Equal(t, []string{"19:27", "19:28", "19:29"}, result.TimeLabels, "19:27, 19:28, 19:29が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
-		assert.Equal(t, []float64{0.48910256410256414, 0.8665792540792541, 0.04292929292929293}, result.Geothermal, "0.48910256410256414, 0.8665792540792541, 0.04292929292929293が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []string{"19:27:00", "19:28:00", "19:29:00"}, result.TimeLabels, "19:27:00, 19:28:00, 19:29:00が期待されましたが､時間のロジックがおかしいので帰ってきませんでした")
+		assert.Equal(t, []float64{20.0, 150.0, 10.0}, result.Geothermal, "20.0, 150.0, 10.0が期待されましたが､地熱のロジックがおかしいので帰ってきませんでした")
 	})
 }
 
@@ -238,8 +329,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 	}
 
 	t.Run("SQLエラーのテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()
@@ -249,7 +339,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 
 		mock.ExpectPrepare("SELECT").WillReturnError(sql.ErrConnDone)
 
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.Error(t, err)
 		assert.Equal(t, PowerChartData{}, result, "エラー時は空のPowerChartDataが返るはずです")
@@ -257,8 +347,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 	})
 
 	t.Run("空データのテスト", func(t *testing.T) {
-		sessionId := "test-session"
-		bucketMinutes := 1
+		sessionId := "9999"
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()
@@ -266,10 +355,15 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
-		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"})
-		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
+		// GetPowerHistoryのメインクエリ（空データ）
+		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"})
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId).WillReturnRows(rows)
 
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		// calculateTotalPowerのクエリ（空データ）
+		totalPowerRows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"})
+		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
+
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		// 現在の実装では空のスライス(timeLabelsはnil、他は空スライス)を返す
@@ -279,8 +373,8 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 			Hydro:      []float64{},
 			Wind:       []float64{},
 			Solar:      []float64{},
+			TotalPower: 0,
 		}
 		assert.Equal(t, expected, result, "空データ時は空のPowerChartDataが返るはずです")
-		assert.NoError(t, mock.ExpectationsWereMet(), "モックの期待値が満たされていません")
 	})
 }

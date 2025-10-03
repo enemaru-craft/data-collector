@@ -525,3 +525,29 @@ func (c *ManagementController) GetPowerHistory(ctx context.Context, req events.A
 		Body:       string(bodyBytes),
 	}, nil
 }
+
+func (c *ManagementController) GetGameResult(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	if req.QueryStringParameters["session_id"] == "" {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 400,
+			Body:       "Missing required query parameter: session_id",
+		}, nil
+	}
+
+	sessionId := req.QueryStringParameters["session_id"]
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
+		}, nil
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+		}
+	}()
+
+	currentState, err := c.repo.GetResult(ctx, tx, sessionId)
+}

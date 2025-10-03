@@ -804,3 +804,9 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 
 	return chartData, nil
 }
+
+type GameResult struct {
+	TotalPowerGeneration                float64 `json:"totalPowerGeneration"`
+	MaximumInstantaneousPowerGeneration float64 `json:"maximumInstantaneousPowerGeneration"`
+	CO2ReductionAmount                  float64 `json:"co2ReductionAmount"`
+}

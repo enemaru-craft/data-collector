@@ -233,7 +233,9 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	}
 	defer registerNewWorldStateStmt.Close()
 
-	villagersTextJSON, err := json.Marshal(villagersText)
+	// APIレスポンス用にはgenerateVillagersTextsを使用し、DBには空配列を保存
+	emptyTexts := []string{}
+	villagersTextJSON, err := json.Marshal(emptyTexts)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
@@ -257,9 +259,12 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		SurplusPower: surplusPower,
 	}
 
+	// 村人のテキストを生成
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersText,
+		Texts:     villagersTexts,
 		Variables: variables,
 	}
 
@@ -377,7 +382,9 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 	}
 	defer registerNewWorldStateStmt.Close()
 
-	villagersTextJSON, err := json.Marshal(villagersText)
+	// APIレスポンス用にはgenerateVillagersTextsを使用し、DBには空配列を保存
+	emptyTexts := []string{}
+	villagersTextJSON, err := json.Marshal(emptyTexts)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
@@ -401,9 +408,12 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 		SurplusPower: surplusPower,
 	}
 
+	// 村人のテキストを生成
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersText,
+		Texts:     villagersTexts,
 		Variables: variables,
 	}
 

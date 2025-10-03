@@ -81,7 +81,7 @@ func TestGetPowerHistory(t *testing.T) {
 
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionID, bucketMinutes).WillReturnRows(rows)
 
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionID, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionID)
 
 		assert.NoError(t, err)
 
@@ -119,7 +119,7 @@ func TestGetPowerHistory(t *testing.T) {
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		// 検証
 		assert.NoError(t, err)
@@ -166,7 +166,7 @@ func TestGetPowerHistory(t *testing.T) {
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -217,7 +217,7 @@ func TestGetPowerHistory(t *testing.T) {
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
 
 		// テスト実行
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -249,7 +249,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 
 		mock.ExpectPrepare("SELECT").WillReturnError(sql.ErrConnDone)
 
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.Error(t, err)
 		assert.Equal(t, PowerChartData{}, result, "エラー時は空のPowerChartDataが返るはずです")
@@ -269,7 +269,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"bucket", "timestamp", "power", "device_id", "device_type"})
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, bucketMinutes).WillReturnRows(rows)
 
-		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId, bucketMinutes)
+		result, err := repo.GetPowerHistory(context.Background(), tx, sessionId)
 
 		assert.NoError(t, err)
 		// 現在の実装では空のスライス(timeLabelsはnil、他は空スライス)を返す

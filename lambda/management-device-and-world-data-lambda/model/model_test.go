@@ -23,17 +23,18 @@ func TestGetPowerHistory(t *testing.T) {
 	}
 
 	t.Run("単一バケット、単一ログのテスト", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
 		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				20.0,
 			)
@@ -46,7 +47,7 @@ func TestGetPowerHistory(t *testing.T) {
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 15, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
@@ -116,23 +117,24 @@ func TestGetPowerHistory(t *testing.T) {
 	})
 
 	t.Run("複数バケット、境界を1つまたぐテスト", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
 		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				20.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				80.0,
 			)
@@ -145,14 +147,14 @@ func TestGetPowerHistory(t *testing.T) {
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
@@ -171,29 +173,30 @@ func TestGetPowerHistory(t *testing.T) {
 	})
 
 	t.Run("複数バケット、境界を2つまたぐテスト", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
 		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				20.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				80.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				10.0,
 			)
@@ -206,21 +209,21 @@ func TestGetPowerHistory(t *testing.T) {
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 29, 10, 0, time.UTC),
 				10.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
@@ -236,35 +239,36 @@ func TestGetPowerHistory(t *testing.T) {
 	})
 
 	t.Run("複数バケット、境界を2つまたぐテスト､一つ目の境界の後に2つ発電量が記録されている", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		mock.ExpectBegin()
 		tx, err := db.Begin()
 		assert.NoError(t, err)
 		defer tx.Rollback()
 
+		geothermal := fmt.Sprintf("M5-%s-geothermal-1", sessionId)
 		rows := sqlmock.NewRows([]string{"bucket", "device_id", "device_type", "power"}).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				20.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				80.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				70.0,
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 				10.0,
 			)
@@ -277,28 +281,28 @@ func TestGetPowerHistory(t *testing.T) {
 				time.Date(2025, 9, 22, 19, 27, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 27, 33, 0, time.UTC),
 				20.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 12, 0, time.UTC),
 				80.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 28, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 28, 15, 0, time.UTC),
 				70.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			).
 			AddRow(
 				time.Date(2025, 9, 22, 19, 29, 0, 0, time.UTC),
 				time.Date(2025, 9, 22, 19, 29, 10, 0, time.UTC),
 				10.0,
-				"M5-22-geothermal-1",
+				geothermal,
 				"geothermal",
 			)
 		mock.ExpectPrepare("SELECT").ExpectQuery().WithArgs(sessionId, 10).WillReturnRows(totalPowerRows)
@@ -325,7 +329,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 	}
 
 	t.Run("SQLエラーのテスト", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()
@@ -343,7 +347,7 @@ func TestGetPowerHistoryErrorCases(t *testing.T) {
 	})
 
 	t.Run("空データのテスト", func(t *testing.T) {
-		sessionId := "test-session"
+		sessionId := "9999"
 
 		// モックトランザクションを開始
 		mock.ExpectBegin()

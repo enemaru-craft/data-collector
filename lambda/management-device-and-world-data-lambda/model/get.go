@@ -101,9 +101,9 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 }
 
 type CurrentWorldState struct {
-	State     State     `json:"state"`
-	Texts     []string  `json:"texts"`
-	Variables Variables `json:"variables"`
+	State     State             `json:"state"`
+	Texts     map[string]string `json:"texts"`
+	Variables Variables         `json:"variables"`
 }
 
 type State struct {
@@ -118,6 +118,50 @@ type State struct {
 type Variables struct {
 	TotalPower   float32 `json:"totalPower"`
 	SurplusPower float32 `json:"surplusPower"`
+}
+
+// 村人のテキストを生成する関数
+func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]string {
+	texts := make(map[string]string)
+
+	// 電車
+	if isTrainEnabled {
+		texts["train"] = "電車が来た!遠くまで行けるぞ!"
+	} else {
+		texts["train"] = "電車が来なくて出かけられない..."
+	}
+
+	// 街頭
+	if isLightEnabled {
+		texts["light"] = "街灯がついて道が明るい!"
+	} else {
+		texts["light"] = "街灯が消えて道が真っ暗だ..."
+	}
+
+	// 家
+	if isHouseEnabled {
+		texts["house"] = "あたたかい光がともった!"
+	} else {
+		texts["house"] = "家が冷たく感じる..."
+	}
+
+	// 公共施設
+	if isFacilityEnabled {
+		texts["facility_firestation"] = "これでいつでも安心だ!"
+		texts["facility_shoppingmall"] = "何でもそろって便利だ!"
+	} else {
+		texts["facility_firestation"] = "非常時に対応できないぞ..."
+		texts["facility_shoppingmall"] = "買い物できないと不便だな..."
+	}
+
+	// 工場
+	if isFactoryEnabled {
+		texts["factory"] = "みんなの生活が豊かになるぞ!"
+	} else {
+		texts["factory"] = "仕事が止まってしまった..."
+	}
+
+	return texts
 }
 
 type MultipleDevicePowerResponse struct {
@@ -260,9 +304,12 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		SurplusPower: surplusPower,
 	}
 
+	// 村人のテキストを生成
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersText,
+		Texts:     villagersTexts,
 		Variables: variables,
 	}
 

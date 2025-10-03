@@ -805,8 +805,14 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	return chartData, nil
 }
 
+type HappinessDetail struct {
+	EnvironmentProblem    float64 `json:"environmentProblem"`
+	PowerStability        float64 `json:"powerStability"`
+	InfrastructureComfort float64 `json:"infrastructureComfort"`
+}
 type GameResult struct {
-	TotalPowerGeneration                float64 `json:"totalPowerGeneration"`
-	MaximumInstantaneousPowerGeneration float64 `json:"maximumInstantaneousPowerGeneration"`
-	CO2ReductionAmount                  float64 `json:"co2ReductionAmount"`
+	TotalPowerGeneration                float64         `json:"totalPowerGeneration"`
+	MaximumInstantaneousPowerGeneration float64         `json:"maximumInstantaneousPowerGeneration"`
+	CO2ReductionAmount                  float64         `json:"co2ReductionAmount"`
+	Happiness                           HappinessDetail `json:"happiness"`
 }

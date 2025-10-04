@@ -26,11 +26,12 @@ type ManagementRepositoryInterface interface {
 	TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
 	TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
 	GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
+	GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
 	GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (PowerChartData, error)
 	CalculateTotalPower(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (float64, error)
 	CalculateTotalPowerByDeviceType(ctx context.Context, tx *sql.Tx, sessionId string, deviceType string, bucketSeconds int) (float64, error)
-	GetGameResult(ctx context.Context, tx *sql.Tx, sessionID string) (GameResult, error)
 	GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (MaxPowerGeneration, error)
+	GetBlackoutCount(ctx context.Context, tx *sql.Tx, sessionID string) (int, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 

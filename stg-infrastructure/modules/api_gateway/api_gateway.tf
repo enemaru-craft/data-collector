@@ -11,6 +11,7 @@ variable "stg_device_and_world_management_routes" {
     { method = "POST", path = "/turn-off-equipment", description = "マイクラ世界の設備をOFFにする" },
     { method = "POST", path = "/get-current-world-state", description = "マイクラ世界の現在の状態を取得する｡前回のfetchから電力量などが変わっていた場合は変更後のデータが送信される" },
     { method = "GET", path = "/get-power-history", description = "発電量の時系列を取得する" },
+    { method = "GET", path = "/get-game-result", description = "ゲームの結果を取得する" },
   ]
 }
 

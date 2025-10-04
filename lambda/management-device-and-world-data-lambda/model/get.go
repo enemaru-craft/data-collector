@@ -121,10 +121,10 @@ type Variables struct {
 }
 
 type MaxPowerGeneration struct {
-	Hydrogen   float32 `json:"hydrogen"`
-	Wind       float32 `json:"wind"`
-	Solar      float32 `json:"solar"`
-	Geothermal float32 `json:"geothermal"`
+	Hydrogen   float64 `json:"hydrogen"`
+	Wind       float64 `json:"wind"`
+	Solar      float64 `json:"solar"`
+	Geothermal float64 `json:"geothermal"`
 }
 
 // 村人のテキストを生成する関数
@@ -305,6 +305,125 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON, blackoutCount)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
+	}
+
+	state := State{
+		IsLightEnabled:    isLightEnabled,
+		IsTrainEnabled:    isTrainEnabled,
+		IsFactoryEnabled:  isFactoryEnabled,
+		IsHouseEnabled:    isHouseEnabled,
+		IsFacilityEnabled: isFacilityEnabled,
+		IsBlackout:        isBlackout,
+	}
+
+	variables := Variables{
+		TotalPower:   allPower,
+		SurplusPower: surplusPower,
+	}
+
+	// 村人のテキストを生成
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+
+	returnState := CurrentWorldState{
+		State:     state,
+		Texts:     villagersTexts,
+		Variables: variables,
+	}
+
+	return returnState, nil
+}
+
+func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error) {
+	getWorldStmt, err := tx.PrepareContext(ctx, `
+		SELECT
+			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,blackout_count
+		FROM
+			world_state
+		WHERE
+			session_id = $1
+		ORDER BY
+			timestamp
+		DESC
+		LIMIT
+			1;
+	`)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get world state statement: %w", err)}
+	}
+	defer getWorldStmt.Close()
+
+	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
+	var villagersTextBytes []byte
+	var blackoutCount int
+
+	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(
+		&isLightEnabled,
+		&isTrainEnabled,
+		&isFactoryEnabled,
+		&isBlackout,
+		&isHouseEnabled,
+		&isFacilityEnabled,
+		&villagersTextBytes,
+		&blackoutCount,
+	)
+	if err != nil {
+		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
+	}
+
+	var villagersText []string
+	if len(villagersTextBytes) > 0 {
+		if err := json.Unmarshal(villagersTextBytes, &villagersText); err != nil {
+			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to unmarshal villagers_text: %w", err)}
+		}
+	}
+
+	// DynamoDBから最新の発電量を取得
+	latestPower := make(map[string]float32)
+	var allPower float32
+
+	// 各デバイスタイプについてDynamoDBから最新データを取得
+	deviceTypes := []string{"solar", "geothermal", "hydrogen", "wind", "fire"}
+	for _, deviceType := range deviceTypes {
+		response, err := repo.GetMultipleDevicesPowerDataFromDynamoDB(ctx, deviceType, sessionID)
+		if err != nil {
+			// エラーが発生しても他のデバイスタイプの処理を続行
+			continue
+		}
+		if response.TotalPower > 0 {
+			latestPower[deviceType] = response.TotalPower
+			allPower += response.TotalPower
+		}
+	}
+
+	var currentPowerConsumption float32
+	if isLightEnabled {
+		currentPowerConsumption += 5.0
+	}
+	if isTrainEnabled {
+		currentPowerConsumption += 410.0
+	}
+	if isFactoryEnabled {
+		currentPowerConsumption += 300.0
+	}
+	if isHouseEnabled {
+		currentPowerConsumption += 300.0
+	}
+	if isFacilityEnabled {
+		currentPowerConsumption += 1015.0
+	}
+
+	var surplusPower float32
+	if currentPowerConsumption > allPower {
+		isBlackout = true
+		isLightEnabled = false
+		isTrainEnabled = false
+		isFactoryEnabled = false
+		isHouseEnabled = false
+		isFacilityEnabled = false
+		surplusPower = 0.0
+	} else {
+		isBlackout = false
+		surplusPower = allPower - currentPowerConsumption
 	}
 
 	state := State{
@@ -1174,95 +1293,79 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 	return chartData, nil
 }
 
-type HappinessDetail struct {
-	EnvironmentProblemScore     float64 `json:"environmentProblemScore"`
-	EnvironmentProblemNumber    float64 `json:"environmentProblemNumber"`
-	PowerStabilityScore         float64 `json:"powerStabilityScore"`
-	PowerStabilityNumber        float64 `json:"powerStabilityNumber"`
-	InfrastructureComfortScore  float64 `json:"infrastructureComfortScore"`
-	InfrastructureComfortNumber float64 `json:"infrastructureComfortNumber"`
-}
-type GameResult struct {
-	TotalPowerGeneration                float64         `json:"totalPowerGeneration"`
-	MaximumInstantaneousPowerGeneration float64         `json:"maximumInstantaneousPowerGeneration"`
-	CO2ReductionAmount                  float64         `json:"co2ReductionAmount"`
-	Happiness                           HappinessDetail `json:"happiness"`
-}
-
 // GetMaxPowerGeneration returns the maximum power generation for each device type
 func (repo *ManagementRepository) GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (MaxPowerGeneration, error) {
 	var maxPower MaxPowerGeneration
 
-	// hydrogen（水素）の最大発電量を取得
-	hydrogenQuery := `
+	// 各デバイスタイプの最大発電量を一度のクエリで取得
+	query := `
 		SELECT
-			COALESCE(MAX(power), 0) as max_power
+			d.device_type,
+			COALESCE(MAX(pl.power), 0) as max_power
 		FROM
-			power_data
+			power_logs pl
+		JOIN
+			session_devices sd ON pl.session_device_id = sd.id
+		JOIN
+			devices d ON sd.device_id = d.device_id
 		WHERE
-			session_id = $1 AND device_type = 'hydrogen'
+			sd.session_id = $1
+			AND d.device_type IN ('hydrogen', 'wind', 'solar', 'geothermal')
+		GROUP BY
+			d.device_type
 	`
-	var hydrogenMax sql.NullFloat64
-	err := tx.QueryRowContext(ctx, hydrogenQuery, sessionID).Scan(&hydrogenMax)
+
+	rows, err := tx.QueryContext(ctx, query, sessionID)
 	if err != nil {
 		return maxPower, err
 	}
-	if hydrogenMax.Valid {
-		maxPower.Hydrogen = float32(hydrogenMax.Float64)
+	defer rows.Close()
+
+	for rows.Next() {
+		var deviceType string
+		var maxValue float64
+		err := rows.Scan(&deviceType, &maxValue)
+		if err != nil {
+			return maxPower, err
+		}
+
+		switch deviceType {
+		case "hydrogen":
+			maxPower.Hydrogen = maxValue
+		case "wind":
+			maxPower.Wind = maxValue
+		case "solar":
+			maxPower.Solar = maxValue
+		case "geothermal":
+			maxPower.Geothermal = maxValue
+		}
 	}
 
-	// wind（風力）の最大発電量を取得
-	windQuery := `
-		SELECT
-			COALESCE(MAX(power), 0) as max_power
-		FROM
-			power_data
-		WHERE session_id = $1 AND device_type = 'wind'
-	`
-	var windMax sql.NullFloat64
-	err = tx.QueryRowContext(ctx, windQuery, sessionID).Scan(&windMax)
-	if err != nil {
+	if err := rows.Err(); err != nil {
 		return maxPower, err
-	}
-	if windMax.Valid {
-		maxPower.Wind = float32(windMax.Float64)
-	}
-
-	// solar（太陽光）の最大発電量を取得
-	solarQuery := `
-		SELECT
-			COALESCE(MAX(power), 0) as max_power
-		FROM
-			power_data
-		WHERE
-			session_id = $1 AND device_type = 'solar'
-	`
-	var solarMax sql.NullFloat64
-	err = tx.QueryRowContext(ctx, solarQuery, sessionID).Scan(&solarMax)
-	if err != nil {
-		return maxPower, err
-	}
-	if solarMax.Valid {
-		maxPower.Solar = float32(solarMax.Float64)
-	}
-
-	// geothermal（地熱）の最大発電量を取得
-	geothermalQuery := `
-		SELECT
-			COALESCE(MAX(power), 0) as max_power
-		FROM
-			power_data
-		WHERE
-			session_id = $1 AND device_type = 'geothermal'
-	`
-	var geothermalMax sql.NullFloat64
-	err = tx.QueryRowContext(ctx, geothermalQuery, sessionID).Scan(&geothermalMax)
-	if err != nil {
-		return maxPower, err
-	}
-	if geothermalMax.Valid {
-		maxPower.Geothermal = float32(geothermalMax.Float64)
 	}
 
 	return maxPower, nil
+}
+
+func (repo *ManagementRepository) GetBlackoutCount(ctx context.Context, tx *sql.Tx, sessionID string) (int, error) {
+	query := `
+		SELECT
+			blackout_count
+		FROM
+			world_state
+		WHERE
+			session_id = $1
+		ORDER BY
+			timestamp DESC
+		LIMIT 1;
+	`
+
+	var count int
+	err := tx.QueryRowContext(ctx, query, sessionID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

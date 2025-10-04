@@ -57,7 +57,7 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return ctr.GetPowerHistory(ctx, req)
 	}
 
-	if method == "GET" && path == "/get-result" {
+	if method == "GET" && path == "/get-game-result" {
 		return ctr.GetGameResult(ctx, req)
 	}
 

@@ -147,23 +147,23 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 
 	// 家
 	if isHouseEnabled {
-		texts["house"] = "あたたかい光がともった!"
+		texts["house"] = "家にあたたかい光がともった!うれしい!"
 	} else {
 		texts["house"] = "家が冷たく感じる..."
 	}
 
 	// 公共施設
 	if isFacilityEnabled {
-		texts["facility_firestation"] = "これでいつでも安心だ!"
+		texts["facility_firestation"] = "消防士さんがいるからこれでいつでも安心だ!"
 		texts["facility_shoppingmall"] = "何でもそろって便利だ!"
 	} else {
-		texts["facility_firestation"] = "非常時に対応できないぞ..."
+		texts["facility_firestation"] = "消防署が動かないと非常時に対応できないぞ..."
 		texts["facility_shoppingmall"] = "買い物できないと不便だな..."
 	}
 
 	// 工場
 	if isFactoryEnabled {
-		texts["factory"] = "みんなの生活が豊かになるぞ!"
+		texts["factory"] = "工場が動いてるおかげで､みんなの生活が豊かになるぞ!"
 	} else {
 		texts["factory"] = "仕事が止まってしまった..."
 	}

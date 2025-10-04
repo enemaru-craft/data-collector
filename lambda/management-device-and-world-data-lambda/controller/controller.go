@@ -535,13 +535,14 @@ type HappinessDetail struct {
 	InfrastructureComfortNumber int     `json:"infrastructureComfortNumber"`
 }
 type GameResult struct {
-	TotalPowerGeneration                          float64         `json:"totalPowerGeneration"`
-	HydrogenMaximumInstantaneousPowerGeneration   float64         `json:"hydrogenMaximumInstantaneousPowerGeneration"`
-	WindMaximumInstantaneousPowerGeneration       float64         `json:"windMaximumInstantaneousPowerGeneration"`
-	SolarMaximumInstantaneousPowerGeneration      float64         `json:"solarMaximumInstantaneousPowerGeneration"`
-	GeothermalMaximumInstantaneousPowerGeneration float64         `json:"geothermalMaximumInstantaneousPowerGeneration"`
-	CO2ReductionAmount                            float64         `json:"co2ReductionAmount"`
-	Happiness                                     HappinessDetail `json:"happiness"`
+	TotalPowerGeneration                          float64           `json:"totalPowerGeneration"`
+	HydrogenMaximumInstantaneousPowerGeneration   float64           `json:"hydrogenMaximumInstantaneousPowerGeneration"`
+	WindMaximumInstantaneousPowerGeneration       float64           `json:"windMaximumInstantaneousPowerGeneration"`
+	SolarMaximumInstantaneousPowerGeneration      float64           `json:"solarMaximumInstantaneousPowerGeneration"`
+	GeothermalMaximumInstantaneousPowerGeneration float64           `json:"geothermalMaximumInstantaneousPowerGeneration"`
+	CO2ReductionAmount                            float64           `json:"co2ReductionAmount"`
+	Happiness                                     HappinessDetail   `json:"happiness"`
+	VillagersTexts                                map[string]string `json:"villagersTexts"`
 }
 
 func (c *ManagementController) GetGameResult(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
@@ -691,6 +692,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 		CO2ReductionAmount: CO2Emissions,
 		Happiness:          happinessDetail,
+		VillagersTexts:     currentWorldState.Texts,
 	}
 
 	jsonGameResult, err := json.Marshal(gameResult)

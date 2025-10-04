@@ -643,7 +643,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	if windTotalPower >= 50.0 {
 		environmentProblemNumber += 25
 	}
-	environmentProblemScore = float64((300 - environmentProblemNumber)) / 3
+	environmentProblemScore = (300.0 - float64(environmentProblemNumber)) / 3
 
 	// 電力の安定性に関する苦情人数とスコア
 	if blackoutCount == 1 {
@@ -653,7 +653,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	} else if blackoutCount >= 3 {
 		powerStabilityNumber = 100
 	}
-	powerStabilityScore = float64((300 - powerStabilityNumber) / 3)
+	powerStabilityScore = (300.0 - float64(powerStabilityNumber)) / 3
 
 	// インフラの快適さに関する苦情人数とスコア
 	if !currentWorldState.State.IsLightEnabled {
@@ -671,7 +671,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	if currentWorldState.State.IsFacilityEnabled {
 		infrastructureComfortNumber += 100 / 6
 	}
-	infrastructureComfortScore = float64((300 - infrastructureComfortNumber)) / 3
+	infrastructureComfortScore = (300.0 - float64(infrastructureComfortNumber)) / 3
 
 	happinessDetail := HappinessDetail{
 		EnvironmentProblemScore:     float64(environmentProblemScore),

@@ -120,6 +120,13 @@ type Variables struct {
 	SurplusPower float32 `json:"surplusPower"`
 }
 
+type MaxPowerGeneration struct {
+	Hydrogen   float32 `json:"hydrogen"`
+	Wind       float32 `json:"wind"`
+	Solar      float32 `json:"solar"`
+	Geothermal float32 `json:"geothermal"`
+}
+
 // 村人のテキストを生成する関数
 func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]string {
 	texts := make(map[string]string)
@@ -691,6 +698,358 @@ func (repo *ManagementRepository) CalculateTotalPower(
 	return totalPower, nil
 }
 
+func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
+	ctx context.Context,
+	tx *sql.Tx,
+	sessionId string,
+	deviceType string,
+	bucketSeconds int,
+) (float64, error) {
+
+	stmt, err := tx.PrepareContext(ctx, `
+			SELECT
+				to_timestamp(
+					FLOOR(
+						(EXTRACT(EPOCH FROM pl.timestamp) +
+						CASE
+							WHEN MOD(EXTRACT(EPOCH FROM pl.timestamp), $2 ) = 0 THEN 1
+							ELSE 0
+						END
+						) / $2
+					) * $2
+				) AT TIME ZONE 'UTC' AS bucket,
+			pl.timestamp,
+			pl.power,
+			d.device_id,
+			d.device_type
+		FROM
+			power_logs pl
+		JOIN
+			session_devices sd ON pl.session_device_id = sd.id
+		JOIN
+			devices d ON sd.device_id = d.device_id
+		WHERE
+			sd.session_id = $1
+		ORDER BY
+			bucket ASC, pl.timestamp ASC;
+    `)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, sessionId, bucketSeconds)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	var rawLogs []RawLog
+	for rows.Next() {
+		var pl RawLog
+		if err := rows.Scan(&pl.Bucket, &pl.Timestamp, &pl.Power, &pl.DeviceID, &pl.DeviceType); err != nil {
+			return 0.0, fmt.Errorf("failed to scan row: %w", err)
+		}
+		rawLogs = append(rawLogs, pl)
+	}
+	if err := rows.Err(); err != nil {
+		return 0.0, fmt.Errorf("rows error: %w", err)
+	}
+
+	deviceMap := make(map[string]*DeviceBuckets)
+	for _, log := range rawLogs {
+
+		// 時間どうこう以前に大元のdeviceIDになにもデータが紐づいてなかったら初期化
+		if _, exists := deviceMap[log.DeviceID]; !exists {
+			deviceMap[log.DeviceID] = &DeviceBuckets{
+				DeviceID:   log.DeviceID,
+				DeviceType: log.DeviceType,
+				Buckets:    []*DeviceBucket{},
+			}
+		}
+		device := deviceMap[log.DeviceID]
+
+		// n分区切りのバケットが存在しているか確認
+		var bucket *DeviceBucket
+		for _, b := range device.Buckets {
+			if b.Bucket.Equal(log.Bucket) {
+				bucket = b
+				break
+			}
+		}
+
+		if bucket == nil {
+			bucket = &DeviceBucket{
+				Bucket: log.Bucket,
+				Logs:   []RawLog{},
+			}
+			device.Buckets = append(device.Buckets, bucket)
+		}
+
+		bucket.Logs = append(bucket.Logs, log)
+	}
+
+	for _, device := range deviceMap {
+		// n分区切りのバケットを昇順ソート
+		sort.Slice(device.Buckets, func(i, j int) bool {
+			return device.Buckets[i].Bucket.Before(device.Buckets[j].Bucket)
+		})
+
+		//  各バケット内のログを昇順にソート
+		for _, b := range device.Buckets {
+			sort.Slice(b.Logs, func(i, j int) bool {
+				return b.Logs[i].Timestamp.Before(b.Logs[j].Timestamp)
+			})
+		}
+	}
+
+	// 時間をまたぐ場合の時間軸でどのような発電量を取るか記録する
+	frontMidpoint := make(map[string]map[time.Time]float64)
+	rearMidpoint := make(map[string]map[time.Time]float64)
+
+	// まだ時間の区切りが一つしか無い場合は別の処理をする必要があるので記録しておく
+	single := make(map[string]bool)
+
+	for deviceID, device := range deviceMap {
+		frontMidpoint[deviceID] = make(map[time.Time]float64)
+		rearMidpoint[deviceID] = make(map[time.Time]float64)
+
+		if len(device.Buckets) < 2 {
+			single[deviceID] = true
+			continue
+		}
+
+		// bucketsの要素を最初の一つ飛ばして一つずつ取り出す
+		for i := 1; i < len(device.Buckets); i++ {
+			bucket := device.Buckets[i]
+
+			prevBucket := device.Buckets[i-1]
+			prevBucketLastLog := prevBucket.Logs[len(prevBucket.Logs)-1]
+			currBucketFirstLog := bucket.Logs[0]
+
+			// 区間全体の長さ
+			totalDuration := currBucketFirstLog.Timestamp.Sub(prevBucketLastLog.Timestamp).Seconds()
+			if totalDuration <= 0 {
+				continue // 時間が逆転している場合はスキップ
+			}
+
+			// 上記の区間全体のうち､境界はどれだけ進んでいるか
+			elapsedDuration := bucket.Bucket.Sub(prevBucketLastLog.Timestamp).Seconds()
+			if elapsedDuration < 0 {
+				continue // 境界が prevBucketLastLog より前ならスキップ
+			}
+
+			// 傾きに先ほど求めた割合をかけて､最後の点からの増分を求める
+			powerAtBoundary := prevBucketLastLog.Power +
+				(currBucketFirstLog.Power-prevBucketLastLog.Power)*(elapsedDuration/totalDuration)
+
+			frontMidpoint[deviceID][bucket.Bucket] = powerAtBoundary
+			rearMidpoint[deviceID][prevBucket.Bucket] = powerAtBoundary
+		}
+	}
+
+	// バケットごとの積分結果を保存するマップ
+	bucketPowerResult := make(map[string]map[time.Time]float64) // deviceID -> bucket -> Wh
+
+	for deviceID, device := range deviceMap {
+		bucketPowerResult[deviceID] = make(map[time.Time]float64)
+
+		// 時間の区切りがまだ一つしかない場合
+		if single[deviceID] {
+			// ログ一つもないならスキップ
+			if len(device.Buckets) == 0 {
+				continue
+			}
+
+			bucket := device.Buckets[0]
+			logs := bucket.Logs
+			if len(logs) == 0 {
+				continue
+			}
+
+			sumWs := 0.0
+
+			if len(logs) == 1 {
+				// ログが一つしか無いなら長方形でWhは求められる
+				onlyLog := logs[0]
+				duration := onlyLog.Timestamp.Sub(bucket.Bucket).Seconds()
+				if duration > 0 {
+					sumWs += onlyLog.Power * duration
+				}
+			} else {
+				for i := 1; i < len(logs); i++ {
+					prev := logs[i-1]
+					curr := logs[i]
+
+					duration := curr.Timestamp.Sub(prev.Timestamp).Seconds()
+					if duration <= 0 {
+						continue
+					}
+					//台形で計算できる
+					area := (prev.Power + curr.Power) / 2.0 * duration
+					sumWs += area
+				}
+
+				// 上記のfor文では台形しか計算していないので､その区間の前後の端は計算されない｡よって計算する｡
+				frontDuration := logs[0].Timestamp.Sub(bucket.Bucket).Seconds()
+				sumWs += logs[0].Power * frontDuration
+
+				bucketEndTime := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Second)
+				rearDuration := bucketEndTime.Sub(logs[len(logs)-1].Timestamp).Seconds()
+				sumWs += logs[len(logs)-1].Power * rearDuration
+
+			}
+
+			bucketPowerResult[deviceID][bucket.Bucket] = sumWs / 3600.0 // Ws -> Wh
+
+		} else {
+			for idx, bucket := range device.Buckets {
+				logs := bucket.Logs
+				if len(logs) == 0 {
+					continue
+				}
+
+				bucketStart := bucket.Bucket
+				bucketStartEnd := bucket.Bucket.Add(time.Duration(bucketSeconds) * time.Second)
+				bucketSumWs := 0.0
+
+				var powerAtStart float64
+				if idx == 0 {
+					// 最初のバケットは長方形で計算するためそのままの値を使う
+					powerAtStart = logs[0].Power
+				} else {
+					// 最初出ない場合は時間の区切りをまたぐので先程計算した値を使う
+					powerAtStart = frontMidpoint[deviceID][bucketStart]
+					fmt.Println(powerAtStart)
+				}
+
+				// 実際に区切りの最初の部分の面積を計算
+				if idx == 0 {
+					// 最初のバケットは長方形で計算するためそのままの値を使う
+					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
+					bucketSumWs += powerAtStart * duration
+				} else {
+					// 最初でない場合は台形で計算する
+					duration := logs[0].Timestamp.Sub(bucketStart).Seconds()
+					bucketSumWs += (powerAtStart + logs[0].Power) / 2.0 * duration
+				}
+
+				// 残りは普通に台形で計算
+				for i := 1; i < len(logs); i++ {
+					prev := logs[i-1]
+					curr := logs[i]
+
+					duration := curr.Timestamp.Sub(prev.Timestamp).Seconds()
+					if duration <= 0 {
+						continue
+					}
+					//台形で計算できる
+					area := (prev.Power + curr.Power) / 2.0 * duration
+					bucketSumWs += area
+				}
+
+				if idx != len(device.Buckets)-1 {
+					// 最後の部分は台形で計算する
+					duration := bucketStartEnd.Sub(logs[len(logs)-1].Timestamp).Seconds()
+					bucketSumWs += (logs[len(logs)-1].Power + rearMidpoint[deviceID][bucketStart]) / 2.0 * duration
+				}
+
+				bucketPowerResult[deviceID][bucketStart] = bucketSumWs / 3600.0 // Ws -> Wh
+			}
+		}
+	}
+
+	bucketSet := make(map[time.Time]struct{})
+	for _, device := range deviceMap {
+		for _, bucket := range device.Buckets {
+			bucketSet[bucket.Bucket] = struct{}{}
+		}
+	}
+
+	// 時刻をソート
+	var bucketTimes []time.Time
+	for t := range bucketSet {
+		bucketTimes = append(bucketTimes, t)
+	}
+	sort.Slice(bucketTimes, func(i, j int) bool {
+		return bucketTimes[i].Before(bucketTimes[j])
+	})
+	// timeLabelsを作成
+	var timeLabels []string
+	for _, t := range bucketTimes {
+		timeLabels = append(timeLabels, t.Format("15:04"))
+	}
+
+	// 各発電種別の配列をtimeLabelsと同じ長さで確保
+	geothermal := make([]float64, len(bucketTimes))
+	hydro := make([]float64, len(bucketTimes))
+	wind := make([]float64, len(bucketTimes))
+	solar := make([]float64, len(bucketTimes))
+	fire := make([]float64, len(bucketTimes))
+
+	// バケット×デバイスごとに対応付け
+	for deviceID, device := range deviceMap {
+		bucketMap := bucketPowerResult[deviceID]
+
+		for _, bucket := range device.Buckets {
+			// バケット位置を特定
+			index := sort.Search(len(bucketTimes), func(i int) bool {
+				return !bucketTimes[i].Before(bucket.Bucket)
+			})
+			if index >= len(bucketTimes) || !bucketTimes[index].Equal(bucket.Bucket) {
+				continue
+			}
+
+			// バケットごとの積分結果からWhを取得
+			sumPower, exists := bucketMap[bucket.Bucket]
+			if !exists {
+				continue
+			}
+
+			switch device.DeviceType {
+			case "geothermal":
+				geothermal[index] += sumPower
+			case "hydrogen":
+				hydro[index] += sumPower
+			case "wind":
+				wind[index] += sumPower
+			case "solar":
+				solar[index] += sumPower
+			case "fire":
+				fire[index] += sumPower
+			}
+		}
+	}
+
+	// 総発電量(kWh)
+	totalPower := 0.0
+
+	switch deviceType {
+	case "geothermal":
+		for _, geo := range geothermal {
+			totalPower += geo
+		}
+	case "hydrogen":
+		for _, hyd := range hydro {
+			totalPower += hyd
+		}
+	case "wind":
+		for _, win := range wind {
+			totalPower += win
+		}
+	case "solar":
+		for _, sol := range solar {
+			totalPower += sol
+		}
+	case "fire":
+		for _, fir := range fire {
+			totalPower += fir
+		}
+	}
+
+	return totalPower, nil
+}
+
 type ResultData struct {
 	DeviceID   string
 	DeviceType string
@@ -816,13 +1175,94 @@ func (repo *ManagementRepository) GetPowerHistory(ctx context.Context, tx *sql.T
 }
 
 type HappinessDetail struct {
-	EnvironmentProblem    float64 `json:"environmentProblem"`
-	PowerStability        float64 `json:"powerStability"`
-	InfrastructureComfort float64 `json:"infrastructureComfort"`
+	EnvironmentProblemScore     float64 `json:"environmentProblemScore"`
+	EnvironmentProblemNumber    float64 `json:"environmentProblemNumber"`
+	PowerStabilityScore         float64 `json:"powerStabilityScore"`
+	PowerStabilityNumber        float64 `json:"powerStabilityNumber"`
+	InfrastructureComfortScore  float64 `json:"infrastructureComfortScore"`
+	InfrastructureComfortNumber float64 `json:"infrastructureComfortNumber"`
 }
 type GameResult struct {
 	TotalPowerGeneration                float64         `json:"totalPowerGeneration"`
 	MaximumInstantaneousPowerGeneration float64         `json:"maximumInstantaneousPowerGeneration"`
 	CO2ReductionAmount                  float64         `json:"co2ReductionAmount"`
 	Happiness                           HappinessDetail `json:"happiness"`
+}
+
+// GetMaxPowerGeneration returns the maximum power generation for each device type
+func (repo *ManagementRepository) GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (MaxPowerGeneration, error) {
+	var maxPower MaxPowerGeneration
+
+	// hydrogen（水素）の最大発電量を取得
+	hydrogenQuery := `
+		SELECT
+			COALESCE(MAX(power), 0) as max_power
+		FROM
+			power_data
+		WHERE
+			session_id = $1 AND device_type = 'hydrogen'
+	`
+	var hydrogenMax sql.NullFloat64
+	err := tx.QueryRowContext(ctx, hydrogenQuery, sessionID).Scan(&hydrogenMax)
+	if err != nil {
+		return maxPower, err
+	}
+	if hydrogenMax.Valid {
+		maxPower.Hydrogen = float32(hydrogenMax.Float64)
+	}
+
+	// wind（風力）の最大発電量を取得
+	windQuery := `
+		SELECT
+			COALESCE(MAX(power), 0) as max_power
+		FROM
+			power_data
+		WHERE session_id = $1 AND device_type = 'wind'
+	`
+	var windMax sql.NullFloat64
+	err = tx.QueryRowContext(ctx, windQuery, sessionID).Scan(&windMax)
+	if err != nil {
+		return maxPower, err
+	}
+	if windMax.Valid {
+		maxPower.Wind = float32(windMax.Float64)
+	}
+
+	// solar（太陽光）の最大発電量を取得
+	solarQuery := `
+		SELECT
+			COALESCE(MAX(power), 0) as max_power
+		FROM
+			power_data
+		WHERE
+			session_id = $1 AND device_type = 'solar'
+	`
+	var solarMax sql.NullFloat64
+	err = tx.QueryRowContext(ctx, solarQuery, sessionID).Scan(&solarMax)
+	if err != nil {
+		return maxPower, err
+	}
+	if solarMax.Valid {
+		maxPower.Solar = float32(solarMax.Float64)
+	}
+
+	// geothermal（地熱）の最大発電量を取得
+	geothermalQuery := `
+		SELECT
+			COALESCE(MAX(power), 0) as max_power
+		FROM
+			power_data
+		WHERE
+			session_id = $1 AND device_type = 'geothermal'
+	`
+	var geothermalMax sql.NullFloat64
+	err = tx.QueryRowContext(ctx, geothermalQuery, sessionID).Scan(&geothermalMax)
+	if err != nil {
+		return maxPower, err
+	}
+	if geothermalMax.Valid {
+		maxPower.Geothermal = float32(geothermalMax.Float64)
+	}
+
+	return maxPower, nil
 }

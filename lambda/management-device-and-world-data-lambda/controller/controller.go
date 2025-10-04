@@ -570,4 +570,86 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	}
 
+	maxPower, err := c.repo.GetMaxPowerGeneration(ctx, tx, sessionId)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	fireTotalPower, err := c.repo.CalculateTotalPowerByDeviceType(ctx, tx, sessionId, "fire", 10)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	windTotalPower, err := c.repo.CalculateTotalPowerByDeviceType(ctx, tx, sessionId, "wind", 10)
+	if err != nil {
+		tx.Rollback()
+		var lErr *custmerr.LogicalErr
+		var tErr *custmerr.TechnicalErr
+		switch {
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 404,
+				Body:       fmt.Sprintf("Session not found: %v", err),
+			}, nil
+
+		case errors.As(err, &tErr):
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 500,
+				Body:       fmt.Sprintf("Technical error occurred: %v", err),
+			}, nil
+		}
+	}
+
+	CO2Emissions := 0.415 * fireTotalPower
+
+	var environmentProblemScore float64
+	environmentProblemNumber := 0
+	var powerStabilityScore float64
+	var powerStabilityNumber int
+	var infrastructureComfortScore float64
+	var infrastructureComfortNumber int
+
+	if CO2Emissions > 20.0 && CO2Emissions <= 30.0 {
+		environmentProblemNumber = 25
+	} else if CO2Emissions > 30.0 && CO2Emissions <= 40.0 {
+		environmentProblemNumber = 50
+	} else if CO2Emissions > 40.0 && CO2Emissions <= 50.0 {
+		environmentProblemNumber = 75
+	}
+
+	if windTotalPower >= 50.0 {
+		environmentProblemNumber += 25
+	}
+	environmentProblemScore = float64((300 - environmentProblemNumber)) / 3
+
 }

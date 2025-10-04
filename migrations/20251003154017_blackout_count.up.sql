@@ -1,0 +1,1 @@
+ALTER TABLE world_state ADD COLUMN blackout_count INTEGER NOT NULL DEFAULT 0;

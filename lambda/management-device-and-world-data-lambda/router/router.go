@@ -57,6 +57,10 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return ctr.GetPowerHistory(ctx, req)
 	}
 
+	if method == "GET" && path == "/get-game-result" {
+		return ctr.GetGameResult(ctx, req)
+	}
+
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 400,
 		Body:       "Invalid method or path",

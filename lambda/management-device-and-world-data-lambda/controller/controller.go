@@ -526,23 +526,31 @@ func (c *ManagementController) GetPowerHistory(ctx context.Context, req events.A
 	}, nil
 }
 
+type CommentDetail struct {
+	Text      string `json:"text"`
+	Sentiment string `json:"sentiment"` // "positive", "neutral", "negative"
+}
+
 type HappinessDetail struct {
-	EnvironmentProblemScore     float64 `json:"environmentProblemScore"`
-	EnvironmentProblemNumber    int     `json:"environmentProblemNumber"`
-	PowerStabilityScore         float64 `json:"powerStabilityScore"`
-	PowerStabilityNumber        int     `json:"powerStabilityNumber"`
-	InfrastructureComfortScore  float64 `json:"infrastructureComfortScore"`
-	InfrastructureComfortNumber int     `json:"infrastructureComfortNumber"`
+	EnvironmentProblemScore      float64       `json:"environmentProblemScore"`
+	EnvironmentProblemNumber     int           `json:"environmentProblemNumber"`
+	EnvironmentProblemComment    CommentDetail `json:"environmentProblemComment"`
+	PowerStabilityScore          float64       `json:"powerStabilityScore"`
+	PowerStabilityNumber         int           `json:"powerStabilityNumber"`
+	PowerStabilityComment        CommentDetail `json:"powerStabilityComment"`
+	InfrastructureComfortScore   float64       `json:"infrastructureComfortScore"`
+	InfrastructureComfortNumber  int           `json:"infrastructureComfortNumber"`
+	InfrastructureComfortComment CommentDetail `json:"infrastructureComfortComment"`
 }
 type GameResult struct {
-	TotalPowerGeneration                          float64           `json:"totalPowerGeneration"`
-	HydrogenMaximumInstantaneousPowerGeneration   float64           `json:"hydrogenMaximumInstantaneousPowerGeneration"`
-	WindMaximumInstantaneousPowerGeneration       float64           `json:"windMaximumInstantaneousPowerGeneration"`
-	SolarMaximumInstantaneousPowerGeneration      float64           `json:"solarMaximumInstantaneousPowerGeneration"`
-	GeothermalMaximumInstantaneousPowerGeneration float64           `json:"geothermalMaximumInstantaneousPowerGeneration"`
-	CO2ReductionAmount                            float64           `json:"co2ReductionAmount"`
-	Happiness                                     HappinessDetail   `json:"happiness"`
-	VillagersTexts                                map[string]string `json:"villagersTexts"`
+	TotalPowerGeneration                          float64                       `json:"totalPowerGeneration"`
+	HydrogenMaximumInstantaneousPowerGeneration   float64                       `json:"hydrogenMaximumInstantaneousPowerGeneration"`
+	WindMaximumInstantaneousPowerGeneration       float64                       `json:"windMaximumInstantaneousPowerGeneration"`
+	SolarMaximumInstantaneousPowerGeneration      float64                       `json:"solarMaximumInstantaneousPowerGeneration"`
+	GeothermalMaximumInstantaneousPowerGeneration float64                       `json:"geothermalMaximumInstantaneousPowerGeneration"`
+	CO2ReductionAmount                            float64                       `json:"co2ReductionAmount"`
+	Happiness                                     HappinessDetail               `json:"happiness"`
+	VillagersTexts                                map[string]model.VillagerText `json:"villagersTexts"`
 }
 
 func (c *ManagementController) GetGameResult(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
@@ -627,10 +635,13 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 	var environmentProblemScore float64
 	environmentProblemNumber := 0
+	var environmentProblemComment CommentDetail
 	var powerStabilityScore float64
 	powerStabilityNumber := 0
+	var powerStabilityComment CommentDetail
 	var infrastructureComfortScore float64
 	infrastructureComfortNumber := 0
+	var infrastructureComfortComment CommentDetail
 
 	// 環境問題の苦情人数とスコア
 	if CO2Emissions > 20.0 && CO2Emissions <= 30.0 {
@@ -646,6 +657,23 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	}
 	environmentProblemScore = (300.0 - float64(environmentProblemNumber)) / 3
 
+	if environmentProblemScore >= 80 {
+		environmentProblemComment = CommentDetail{
+			Text:      "街の空気がきれいでうれしい!",
+			Sentiment: "positive",
+		}
+	} else if environmentProblemScore >= 50 {
+		environmentProblemComment = CommentDetail{
+			Text:      "街の空気が少し汚れているかもしれない...",
+			Sentiment: "positive",
+		}
+	} else {
+		environmentProblemComment = CommentDetail{
+			Text:      "街の空気が汚れていて住みにくい!",
+			Sentiment: "negative",
+		}
+	}
+
 	// 電力の安定性に関する苦情人数とスコア
 	if blackoutCount == 1 {
 		powerStabilityNumber = 50
@@ -655,6 +683,23 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		powerStabilityNumber = 100
 	}
 	powerStabilityScore = (300.0 - float64(powerStabilityNumber)) / 3
+
+	if powerStabilityScore >= 80 {
+		powerStabilityComment = CommentDetail{
+			Text:      "街の電力が安定していて快適!",
+			Sentiment: "positive",
+		}
+	} else if powerStabilityScore >= 50 {
+		powerStabilityComment = CommentDetail{
+			Text:      "街の電力が少し不安定かもしれない...",
+			Sentiment: "positive",
+		}
+	} else {
+		powerStabilityComment = CommentDetail{
+			Text:      "街の電力が不安定で住みにくい!",
+			Sentiment: "negative",
+		}
+	}
 
 	// インフラの快適さに関する苦情人数とスコア
 	if !currentWorldState.State.IsLightEnabled {
@@ -674,13 +719,33 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	}
 	infrastructureComfortScore = (300.0 - float64(infrastructureComfortNumber)) / 3
 
+	if infrastructureComfortScore >= 80 {
+		infrastructureComfortComment = CommentDetail{
+			Text:      "街のインフラが充実していて快適!",
+			Sentiment: "positive",
+		}
+	} else if infrastructureComfortScore >= 50 {
+		infrastructureComfortComment = CommentDetail{
+			Text:      "街のインフラがもう少し充実するといいな",
+			Sentiment: "positive",
+		}
+	} else {
+		infrastructureComfortComment = CommentDetail{
+			Text:      "街のインフラが不便で住みにくい!",
+			Sentiment: "negative",
+		}
+	}
+
 	happinessDetail := HappinessDetail{
-		EnvironmentProblemScore:     float64(environmentProblemScore),
-		EnvironmentProblemNumber:    environmentProblemNumber,
-		PowerStabilityScore:         float64(powerStabilityScore),
-		PowerStabilityNumber:        powerStabilityNumber,
-		InfrastructureComfortScore:  float64(infrastructureComfortScore),
-		InfrastructureComfortNumber: infrastructureComfortNumber,
+		EnvironmentProblemScore:      float64(environmentProblemScore),
+		EnvironmentProblemNumber:     environmentProblemNumber,
+		EnvironmentProblemComment:    environmentProblemComment,
+		PowerStabilityScore:          float64(powerStabilityScore),
+		PowerStabilityNumber:         powerStabilityNumber,
+		PowerStabilityComment:        powerStabilityComment,
+		InfrastructureComfortScore:   float64(infrastructureComfortScore),
+		InfrastructureComfortNumber:  infrastructureComfortNumber,
+		InfrastructureComfortComment: infrastructureComfortComment,
 	}
 
 	gameResult := GameResult{

@@ -101,9 +101,9 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 }
 
 type CurrentWorldState struct {
-	State     State             `json:"state"`
-	Texts     map[string]string `json:"texts"`
-	Variables Variables         `json:"variables"`
+	State     State                   `json:"state"`
+	Texts     map[string]VillagerText `json:"texts"`
+	Variables Variables               `json:"variables"`
 }
 
 type State struct {
@@ -127,45 +127,86 @@ type MaxPowerGeneration struct {
 	Geothermal float64 `json:"geothermal"`
 }
 
+type VillagerText struct {
+	Text      string `json:"text"`
+	Sentiment string `json:"sentiment"` // "positive", "neutral", "negative"
+}
+
 // 村人のテキストを生成する関数
-func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]string {
-	texts := make(map[string]string)
+func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]VillagerText {
+	texts := make(map[string]VillagerText)
 
 	// 電車
 	if isTrainEnabled {
-		texts["train"] = "電車が来た!遠くまで行けるぞ!"
+		texts["train"] = VillagerText{
+			Text:      "電車が来た!遠くまで行けるぞ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["train"] = "電車が来なくて出かけられない..."
+		texts["train"] = VillagerText{
+			Text:      "電車が来なくて出かけられない...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 街頭
 	if isLightEnabled {
-		texts["light"] = "街灯がついて道が明るい!"
+		texts["light"] = VillagerText{
+			Text:      "街灯がついて道が明るい!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["light"] = "街灯が消えて道が真っ暗だ..."
+		texts["light"] = VillagerText{
+			Text:      "街灯が消えて道が真っ暗だ...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 家
 	if isHouseEnabled {
-		texts["house"] = "家にあたたかい光がともった!うれしい!"
+		texts["house"] = VillagerText{
+			Text:      "家にあたたかい光がともった!うれしい!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["house"] = "家が冷たく感じる..."
+		texts["house"] = VillagerText{
+			Text:      "家が冷たく感じる...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 公共施設
 	if isFacilityEnabled {
-		texts["facility_firestation"] = "消防士さんがいるからこれでいつでも安心だ!"
-		texts["facility_shoppingmall"] = "何でもそろって便利だ!"
+		texts["facility_firestation"] = VillagerText{
+			Text:      "消防士さんがいるからこれでいつでも安心だ!",
+			Sentiment: "positive",
+		}
+		texts["facility_shoppingmall"] = VillagerText{
+			Text:      "何でもそろって便利だ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["facility_firestation"] = "消防署が動かないと非常時に対応できないぞ..."
-		texts["facility_shoppingmall"] = "買い物できないと不便だな..."
+		texts["facility_firestation"] = VillagerText{
+			Text:      "消防署が動かないと非常時に対応できないぞ...",
+			Sentiment: "negative",
+		}
+		texts["facility_shoppingmall"] = VillagerText{
+			Text:      "買い物できないと不便だな...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 工場
 	if isFactoryEnabled {
-		texts["factory"] = "工場が動いてるおかげで､みんなの生活が豊かになるぞ!"
+		texts["factory"] = VillagerText{
+			Text:      "工場が動いてるおかげで､みんなの生活が豊かになるぞ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["factory"] = "仕事が止まってしまった..."
+		texts["factory"] = VillagerText{
+			Text:      "仕事が止まってしまった...",
+			Sentiment: "negative",
+		}
 	}
 
 	return texts

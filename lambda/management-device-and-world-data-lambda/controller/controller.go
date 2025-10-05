@@ -613,6 +613,15 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}, nil
 	}
 
+	renewableEnergyTotalPower, err := c.repo.CalculateTotalPower(ctx, tx, sessionId, 10)
+	if err != nil {
+		tx.Rollback()
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       fmt.Sprintf("Technical error occurred: %v", err),
+		}, nil
+	}
+
 	blackoutCount, err := c.repo.GetBlackoutCount(ctx, tx, sessionId)
 	if err != nil {
 		tx.Rollback()
@@ -736,6 +745,8 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	}
 
+	CO2ReductionAmount := 0.415 * renewableEnergyTotalPower
+
 	happinessDetail := HappinessDetail{
 		EnvironmentProblemScore:      float64(environmentProblemScore),
 		EnvironmentProblemNumber:     environmentProblemNumber,
@@ -755,7 +766,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		SolarMaximumInstantaneousPowerGeneration:      maxPower.Solar,
 		GeothermalMaximumInstantaneousPowerGeneration: maxPower.Geothermal,
 
-		CO2ReductionAmount: CO2Emissions,
+		CO2ReductionAmount: CO2ReductionAmount,
 		Happiness:          happinessDetail,
 		VillagersTexts:     currentWorldState.Texts,
 	}

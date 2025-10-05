@@ -29,7 +29,7 @@ type ManagementRepositoryInterface interface {
 	GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
 	GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (PowerChartData, error)
 	CalculateTotalPower(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (float64, error)
-	CalculateTotalPowerByDeviceType(ctx context.Context, tx *sql.Tx, sessionId string, deviceType string, bucketSeconds int) (float64, error)
+	CalculateTotalPowerByPowerGenerationType(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (TotalPowerByPowerGenerationType, error)
 	GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (MaxPowerGeneration, error)
 	GetBlackoutCount(ctx context.Context, tx *sql.Tx, sessionID string) (int, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)

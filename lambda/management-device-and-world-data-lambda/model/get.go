@@ -857,13 +857,20 @@ func (repo *ManagementRepository) CalculateTotalPower(
 	return totalPower, nil
 }
 
-func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
+type TotalPowerByPowerGenerationType struct {
+	GeothermalTotalPower float64
+	HydrogenTotalPower   float64
+	WindTotalPower       float64
+	SolarTotalPower      float64
+	FireTotalPower       float64
+}
+
+func (repo *ManagementRepository) CalculateTotalPowerByPowerGenerationType(
 	ctx context.Context,
 	tx *sql.Tx,
 	sessionId string,
-	deviceType string,
 	bucketSeconds int,
-) (float64, error) {
+) (TotalPowerByPowerGenerationType, error) {
 
 	stmt, err := tx.PrepareContext(ctx, `
 			SELECT
@@ -893,13 +900,13 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 			bucket ASC, pl.timestamp ASC;
     `)
 	if err != nil {
-		return 0.0, fmt.Errorf("failed to prepare statement: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, sessionId, bucketSeconds)
 	if err != nil {
-		return 0.0, fmt.Errorf("failed to execute query: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -907,12 +914,12 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 	for rows.Next() {
 		var pl RawLog
 		if err := rows.Scan(&pl.Bucket, &pl.Timestamp, &pl.Power, &pl.DeviceID, &pl.DeviceType); err != nil {
-			return 0.0, fmt.Errorf("failed to scan row: %w", err)
+			return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to scan row: %w", err)
 		}
 		rawLogs = append(rawLogs, pl)
 	}
 	if err := rows.Err(); err != nil {
-		return 0.0, fmt.Errorf("rows error: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("rows error: %w", err)
 	}
 
 	deviceMap := make(map[string]*DeviceBuckets)
@@ -1179,30 +1186,22 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 		}
 	}
 
-	// 総発電量(kWh)
-	totalPower := 0.0
+	totalPower := TotalPowerByPowerGenerationType{}
 
-	switch deviceType {
-	case "geothermal":
-		for _, geo := range geothermal {
-			totalPower += geo
-		}
-	case "hydrogen":
-		for _, hyd := range hydro {
-			totalPower += hyd
-		}
-	case "wind":
-		for _, win := range wind {
-			totalPower += win
-		}
-	case "solar":
-		for _, sol := range solar {
-			totalPower += sol
-		}
-	case "fire":
-		for _, fir := range fire {
-			totalPower += fir
-		}
+	for _, geo := range geothermal {
+		totalPower.GeothermalTotalPower += geo
+	}
+	for _, hyd := range hydro {
+		totalPower.HydrogenTotalPower += hyd
+	}
+	for _, win := range wind {
+		totalPower.WindTotalPower += win
+	}
+	for _, sol := range solar {
+		totalPower.SolarTotalPower += sol
+	}
+	for _, fir := range fire {
+		totalPower.FireTotalPower += fir
 	}
 
 	return totalPower, nil

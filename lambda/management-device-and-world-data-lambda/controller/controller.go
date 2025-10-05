@@ -549,6 +549,11 @@ type GameResult struct {
 	SolarMaximumInstantaneousPowerGeneration      float64                       `json:"solarMaximumInstantaneousPowerGeneration"`
 	GeothermalMaximumInstantaneousPowerGeneration float64                       `json:"geothermalMaximumInstantaneousPowerGeneration"`
 	CO2ReductionAmount                            float64                       `json:"co2ReductionAmount"`
+	GeothermalTotalPower                          float64                       `json:"geothermalTotalPower"`
+	FireTotalPower                                float64                       `json:"fireTotalPower"`
+	WindTotalPower                                float64                       `json:"windTotalPower"`
+	SolarTotalPower                               float64                       `json:"solarTotalPower"`
+	HydrogenTotalPower                            float64                       `json:"hydrogenTotalPower"`
 	Happiness                                     HappinessDetail               `json:"happiness"`
 	VillagersTexts                                map[string]model.VillagerText `json:"villagersTexts"`
 }
@@ -595,16 +600,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}, nil
 	}
 
-	fireTotalPower, err := c.repo.CalculateTotalPowerByDeviceType(ctx, tx, sessionId, "fire", 10)
-	if err != nil {
-		tx.Rollback()
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
-			Body:       fmt.Sprintf("Technical error occurred: %v", err),
-		}, nil
-	}
-
-	windTotalPower, err := c.repo.CalculateTotalPowerByDeviceType(ctx, tx, sessionId, "wind", 10)
+	totalPowerByPowerGenerationType, err := c.repo.CalculateTotalPowerByPowerGenerationType(ctx, tx, sessionId, 10)
 	if err != nil {
 		tx.Rollback()
 		return events.APIGatewayV2HTTPResponse{
@@ -640,7 +636,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}, nil
 	}
 
-	CO2Emissions := 0.415 * fireTotalPower
+	CO2Emissions := 0.415 * totalPowerByPowerGenerationType.FireTotalPower
 
 	var environmentProblemScore float64
 	environmentProblemNumber := 0
@@ -661,7 +657,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		environmentProblemNumber = 75
 	}
 
-	if windTotalPower >= 50.0 {
+	if totalPowerByPowerGenerationType.WindTotalPower >= 50.0 {
 		environmentProblemNumber += 25
 	}
 	environmentProblemScore = (300.0 - float64(environmentProblemNumber)) / 3
@@ -765,6 +761,12 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		WindMaximumInstantaneousPowerGeneration:       maxPower.Wind,
 		SolarMaximumInstantaneousPowerGeneration:      maxPower.Solar,
 		GeothermalMaximumInstantaneousPowerGeneration: maxPower.Geothermal,
+
+		GeothermalTotalPower: totalPowerByPowerGenerationType.GeothermalTotalPower,
+		FireTotalPower:       totalPowerByPowerGenerationType.FireTotalPower,
+		WindTotalPower:       totalPowerByPowerGenerationType.WindTotalPower,
+		SolarTotalPower:      totalPowerByPowerGenerationType.SolarTotalPower,
+		HydrogenTotalPower:   totalPowerByPowerGenerationType.HydrogenTotalPower,
 
 		CO2ReductionAmount: CO2ReductionAmount,
 		Happiness:          happinessDetail,

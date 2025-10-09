@@ -9,22 +9,23 @@ import (
 )
 
 func (repo *ManagementRepository) DeleteSessionAndRelatedData(ctx context.Context, tx *sql.Tx, sessionID string) error {
-	stmt, err := tx.PrepareContext(ctx,
-		`
-		DELETE
-		FROM
+	delSessionQuery := `
+		DELETE FROM
 			sessions
 		WHERE
-			session_id = $1
-	`)
+			session_id = $1`
+	res, err := tx.ExecContext(ctx, delSessionQuery, sessionID)
 	if err != nil {
-		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare delete sessions stmt: %w", err)}
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to delete session %s: %w", sessionID, err)}
 	}
-	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, sessionID)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to delete session: %w", err)}
+		return &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get rows affected when deleting session %s: %w", sessionID, err)}
+	}
+
+	if rowsAffected == 0 {
+		return &custmerr.LogicalErr{Err: fmt.Errorf("session %s not found", sessionID)}
 	}
 
 	return nil

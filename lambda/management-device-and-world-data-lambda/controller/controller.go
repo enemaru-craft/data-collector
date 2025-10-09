@@ -502,10 +502,15 @@ func (c *ManagementController) DeleteSessionHandler(ctx context.Context, req eve
 	if err := c.repo.DeleteSessionAndRelatedData(ctx, tx, body.SessionID); err != nil {
 		tx.Rollback()
 		var tErr *custmerr.TechnicalErr
-		if errors.As(err, &tErr) {
+		var lErr *custmerr.LogicalErr
+		switch {
+		case errors.As(err, &tErr):
 			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Technical error occurred: %v", err)}, nil
+		case errors.As(err, &lErr):
+			return events.APIGatewayV2HTTPResponse{StatusCode: 404, Body: fmt.Sprintf("Session not found: %v", err)}, nil
+		default:
+			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to delete session: %v", err)}, nil
 		}
-		return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to delete session: %v", err)}, nil
 	}
 
 	tx.Commit()

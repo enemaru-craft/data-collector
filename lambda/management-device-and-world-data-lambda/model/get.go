@@ -210,24 +210,19 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	}
 
 	// 火力発電による環境への影響
-	if firePower <= 250 {
+	if firePower == 0 {
 		texts["environment"] = VillagerText{
-			Text:      "空気がきれい!",
+			Text:      "CO2を出さない電気が\n未来の地球を救うんだね",
 			Sentiment: "positive",
 		}
-	} else if firePower <= 500 {
+	} else if firePower >= 1 && firePower <= 500 {
 		texts["environment"] = VillagerText{
-			Text:      "空気が少し汚れているかも",
-			Sentiment: "negative",
+			Text:      "環境にやさしい発電とパワフルな火力発電の\nバランスが大事なんだね ",
+			Sentiment: "positive",
 		}
-	} else if firePower <= 750 {
+	} else if firePower >= 501 && firePower <= 750 {
 		texts["environment"] = VillagerText{
-			Text:      "空気が汚い...",
-			Sentiment: "negative",
-		}
-	} else if firePower <= 1000 {
-		texts["environment"] = VillagerText{
-			Text:      "空気が汚すぎて息がしづらい...",
+			Text:      "今日の電気は、地球温暖化を\n少し進めてしまっているかもしれない...",
 			Sentiment: "negative",
 		}
 	}

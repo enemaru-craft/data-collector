@@ -725,7 +725,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	} else {
 		environmentProblemComment = CommentDetail{
-			Text:      "街の空気が汚れていて住みにくい!",
+			Text:      "街の空気が汚れていて住みにくい...",
 			Sentiment: "negative",
 		}
 	}
@@ -752,7 +752,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	} else {
 		powerStabilityComment = CommentDetail{
-			Text:      "街の電力が不安定で住みにくい!",
+			Text:      "街の電力が不安定で住みにくい...",
 			Sentiment: "negative",
 		}
 	}
@@ -787,7 +787,7 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 		}
 	} else {
 		infrastructureComfortComment = CommentDetail{
-			Text:      "街のインフラが不便で住みにくい!",
+			Text:      "街のインフラが不便で住みにくい...",
 			Sentiment: "negative",
 		}
 	}

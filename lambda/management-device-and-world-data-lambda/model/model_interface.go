@@ -32,6 +32,7 @@ type ManagementRepositoryInterface interface {
 	CalculateTotalPowerByPowerGenerationType(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (TotalPowerByPowerGenerationType, error)
 	GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (MaxPowerGeneration, error)
 	GetBlackoutCount(ctx context.Context, tx *sql.Tx, sessionID string) (int, error)
+	DeleteSessionAndRelatedData(ctx context.Context, tx *sql.Tx, sessionID string) error
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 }
 

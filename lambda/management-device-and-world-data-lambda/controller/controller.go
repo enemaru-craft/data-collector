@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"data-manager/custmerr"
 	"data-manager/model"
 
@@ -465,6 +467,50 @@ func (c *ManagementController) GetCurrentWorldState(ctx context.Context, req eve
 		StatusCode: 200,
 		Body:       string(jsonBytes),
 	}, nil
+}
+
+type DeleteSessionRequest struct {
+	SessionID string `json:"sessionId"`
+	Password  string `json:"password"`
+}
+
+func (c *ManagementController) DeleteSessionHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var body DeleteSessionRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return events.APIGatewayV2HTTPResponse{StatusCode: 400, Body: fmt.Sprintf("Invalid request body: %v", err)}, nil
+	}
+
+	if body.SessionID == "" || body.Password == "" {
+		return events.APIGatewayV2HTTPResponse{StatusCode: 400, Body: "Missing session_id or password"}, nil
+	}
+
+	correctPasswordHash := []byte("$2a$12$r5QB3cHHkd8EYs/CCYzNOupT76zmEXqtcWqscrUCpARbu/jNAXKy6")
+
+	fmt.Println(body.Password)
+
+	err := bcrypt.CompareHashAndPassword(correctPasswordHash, []byte(string(body.Password)))
+	if err != nil {
+		fmt.Println(err)
+		return events.APIGatewayV2HTTPResponse{StatusCode: 403, Body: "Invalid password"}, nil
+	}
+
+	tx, err := c.repo.BeginTx(ctx, nil)
+	if err != nil {
+		return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to begin transaction: %v", err)}, nil
+	}
+
+	if err := c.repo.DeleteSessionAndRelatedData(ctx, tx, body.SessionID); err != nil {
+		tx.Rollback()
+		var tErr *custmerr.TechnicalErr
+		if errors.As(err, &tErr) {
+			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Technical error occurred: %v", err)}, nil
+		}
+		return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: fmt.Sprintf("Failed to delete session: %v", err)}, nil
+	}
+
+	tx.Commit()
+
+	return events.APIGatewayV2HTTPResponse{StatusCode: 200, Body: "Session deleted"}, nil
 }
 
 func (c *ManagementController) GetPowerHistory(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

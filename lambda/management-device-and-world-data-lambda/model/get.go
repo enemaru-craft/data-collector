@@ -133,7 +133,7 @@ type VillagerText struct {
 }
 
 // 村人のテキストを生成する関数
-func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]VillagerText {
+func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool, firePower float32) map[string]VillagerText {
 	texts := make(map[string]VillagerText)
 
 	// 電車
@@ -205,6 +205,29 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	} else {
 		texts["factory"] = VillagerText{
 			Text:      "仕事が止まってしまった...",
+			Sentiment: "negative",
+		}
+	}
+
+	// 火力発電による環境への影響
+	if firePower <= 250 {
+		texts["environment"] = VillagerText{
+			Text:      "空気がきれい!",
+			Sentiment: "positive",
+		}
+	} else if firePower <= 500 {
+		texts["environment"] = VillagerText{
+			Text:      "空気が少し汚れているかも",
+			Sentiment: "negative",
+		}
+	} else if firePower <= 750 {
+		texts["environment"] = VillagerText{
+			Text:      "空気が汚い...",
+			Sentiment: "negative",
+		}
+	} else if firePower <= 1000 {
+		texts["environment"] = VillagerText{
+			Text:      "空気が汚すぎて息がしづらい...",
 			Sentiment: "negative",
 		}
 	}
@@ -362,8 +385,14 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,
@@ -481,8 +510,14 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,

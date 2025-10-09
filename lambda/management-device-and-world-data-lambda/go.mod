@@ -1,6 +1,8 @@
 module data-manager
 
-go 1.22.3
+go 1.24.0
+
+toolchain go1.24.8
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -10,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.50.3
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.7.2
+	golang.org/x/crypto v0.43.0
 )
 
 require (

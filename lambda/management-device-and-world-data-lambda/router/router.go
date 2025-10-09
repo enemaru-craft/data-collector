@@ -53,6 +53,10 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return ctr.GetCurrentWorldState(ctx, req)
 	}
 
+	if method == "POST" && path == "/delete-session" {
+		return ctr.DeleteSessionHandler(ctx, req)
+	}
+
 	if method == "GET" && path == "/get-power-history" {
 		return ctr.GetPowerHistory(ctx, req)
 	}

@@ -101,9 +101,9 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 }
 
 type CurrentWorldState struct {
-	State     State             `json:"state"`
-	Texts     map[string]string `json:"texts"`
-	Variables Variables         `json:"variables"`
+	State     State                   `json:"state"`
+	Texts     map[string]VillagerText `json:"texts"`
+	Variables Variables               `json:"variables"`
 }
 
 type State struct {
@@ -127,45 +127,104 @@ type MaxPowerGeneration struct {
 	Geothermal float64 `json:"geothermal"`
 }
 
+type VillagerText struct {
+	Text      string `json:"text"`
+	Sentiment string `json:"sentiment"` // "positive", "neutral", "negative"
+}
+
 // 村人のテキストを生成する関数
-func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool) map[string]string {
-	texts := make(map[string]string)
+func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool, firePower float32) map[string]VillagerText {
+	texts := make(map[string]VillagerText)
 
 	// 電車
 	if isTrainEnabled {
-		texts["train"] = "電車が来た!遠くまで行けるぞ!"
+		texts["train"] = VillagerText{
+			Text:      "電車が来た!遠くまで行けるぞ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["train"] = "電車が来なくて出かけられない..."
+		texts["train"] = VillagerText{
+			Text:      "電車が来なくて出かけられない...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 街頭
 	if isLightEnabled {
-		texts["light"] = "街灯がついて道が明るい!"
+		texts["light"] = VillagerText{
+			Text:      "街灯がついて道が明るい!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["light"] = "街灯が消えて道が真っ暗だ..."
+		texts["light"] = VillagerText{
+			Text:      "街灯が消えて道が真っ暗だ...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 家
 	if isHouseEnabled {
-		texts["house"] = "あたたかい光がともった!"
+		texts["house"] = VillagerText{
+			Text:      "家にあたたかい光がともった!うれしい!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["house"] = "家が冷たく感じる..."
+		texts["house"] = VillagerText{
+			Text:      "家が冷たく感じる...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 公共施設
 	if isFacilityEnabled {
-		texts["facility_firestation"] = "これでいつでも安心だ!"
-		texts["facility_shoppingmall"] = "何でもそろって便利だ!"
+		texts["facility_firestation"] = VillagerText{
+			Text:      "消防士さんがいるからこれでいつでも安心だ!",
+			Sentiment: "positive",
+		}
+		texts["facility_shoppingmall"] = VillagerText{
+			Text:      "何でもそろって便利だ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["facility_firestation"] = "非常時に対応できないぞ..."
-		texts["facility_shoppingmall"] = "買い物できないと不便だな..."
+		texts["facility_firestation"] = VillagerText{
+			Text:      "消防署が動かないと非常時に対応できないぞ...",
+			Sentiment: "negative",
+		}
+		texts["facility_shoppingmall"] = VillagerText{
+			Text:      "買い物できないと不便だな...",
+			Sentiment: "negative",
+		}
 	}
 
 	// 工場
 	if isFactoryEnabled {
-		texts["factory"] = "みんなの生活が豊かになるぞ!"
+		texts["factory"] = VillagerText{
+			Text:      "工場が動いてるおかげで､みんなの生活が豊かになるぞ!",
+			Sentiment: "positive",
+		}
 	} else {
-		texts["factory"] = "仕事が止まってしまった..."
+		texts["factory"] = VillagerText{
+			Text:      "仕事が止まってしまった...",
+			Sentiment: "negative",
+		}
+	}
+
+	// 火力発電による環境への影響
+	if firePower == 0 {
+		texts["environment"] = VillagerText{
+			Text:      "CO2を出さない電気が\n未来の地球を救うんだね",
+			Sentiment: "positive",
+		}
+	} else if firePower >= 1 && firePower <= 500 {
+		texts["environment"] = VillagerText{
+			Text:      "環境にやさしい発電とパワフルな火力発電の\nバランスが大事なんだね ",
+			Sentiment: "positive",
+		}
+	} else if firePower >= 501 && firePower <= 750 {
+		texts["environment"] = VillagerText{
+			Text:      "今日の電気は、地球温暖化を\n少し進めてしまっているかもしれない...",
+			Sentiment: "negative",
+		}
 	}
 
 	return texts
@@ -321,8 +380,14 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,
@@ -440,8 +505,14 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,
@@ -816,13 +887,20 @@ func (repo *ManagementRepository) CalculateTotalPower(
 	return totalPower, nil
 }
 
-func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
+type TotalPowerByPowerGenerationType struct {
+	GeothermalTotalPower float64
+	HydrogenTotalPower   float64
+	WindTotalPower       float64
+	SolarTotalPower      float64
+	FireTotalPower       float64
+}
+
+func (repo *ManagementRepository) CalculateTotalPowerByPowerGenerationType(
 	ctx context.Context,
 	tx *sql.Tx,
 	sessionId string,
-	deviceType string,
 	bucketSeconds int,
-) (float64, error) {
+) (TotalPowerByPowerGenerationType, error) {
 
 	stmt, err := tx.PrepareContext(ctx, `
 			SELECT
@@ -852,13 +930,13 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 			bucket ASC, pl.timestamp ASC;
     `)
 	if err != nil {
-		return 0.0, fmt.Errorf("failed to prepare statement: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, sessionId, bucketSeconds)
 	if err != nil {
-		return 0.0, fmt.Errorf("failed to execute query: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -866,12 +944,12 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 	for rows.Next() {
 		var pl RawLog
 		if err := rows.Scan(&pl.Bucket, &pl.Timestamp, &pl.Power, &pl.DeviceID, &pl.DeviceType); err != nil {
-			return 0.0, fmt.Errorf("failed to scan row: %w", err)
+			return TotalPowerByPowerGenerationType{}, fmt.Errorf("failed to scan row: %w", err)
 		}
 		rawLogs = append(rawLogs, pl)
 	}
 	if err := rows.Err(); err != nil {
-		return 0.0, fmt.Errorf("rows error: %w", err)
+		return TotalPowerByPowerGenerationType{}, fmt.Errorf("rows error: %w", err)
 	}
 
 	deviceMap := make(map[string]*DeviceBuckets)
@@ -1138,30 +1216,22 @@ func (repo *ManagementRepository) CalculateTotalPowerByDeviceType(
 		}
 	}
 
-	// 総発電量(kWh)
-	totalPower := 0.0
+	totalPower := TotalPowerByPowerGenerationType{}
 
-	switch deviceType {
-	case "geothermal":
-		for _, geo := range geothermal {
-			totalPower += geo
-		}
-	case "hydrogen":
-		for _, hyd := range hydro {
-			totalPower += hyd
-		}
-	case "wind":
-		for _, win := range wind {
-			totalPower += win
-		}
-	case "solar":
-		for _, sol := range solar {
-			totalPower += sol
-		}
-	case "fire":
-		for _, fir := range fire {
-			totalPower += fir
-		}
+	for _, geo := range geothermal {
+		totalPower.GeothermalTotalPower += geo
+	}
+	for _, hyd := range hydro {
+		totalPower.HydrogenTotalPower += hyd
+	}
+	for _, win := range wind {
+		totalPower.WindTotalPower += win
+	}
+	for _, sol := range solar {
+		totalPower.SolarTotalPower += sol
+	}
+	for _, fir := range fire {
+		totalPower.FireTotalPower += fir
 	}
 
 	return totalPower, nil

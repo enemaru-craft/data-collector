@@ -268,8 +268,14 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,
@@ -426,8 +432,14 @@ func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.
 		SurplusPower: surplusPower,
 	}
 
+	// fire発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled)
+	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
 
 	returnState := CurrentWorldState{
 		State:     state,

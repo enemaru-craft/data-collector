@@ -28,6 +28,8 @@ resource "aws_lambda_function" "stg_management_device_and_world_data_lambda" {
 
   filename = "${path.module}/lambda_function.zip"
 
+  timeout = 30
+
   lifecycle {
     ignore_changes = [
       filename,

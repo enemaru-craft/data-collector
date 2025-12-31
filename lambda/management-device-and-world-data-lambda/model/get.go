@@ -220,7 +220,7 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 			Text:      "環境にやさしい発電とパワフルな火力発電の\nバランスが大事なんだね ",
 			Sentiment: "positive",
 		}
-	} else if firePower >= 501 && firePower <= 750 {
+	} else if firePower >= 501 && firePower <= 1000 {
 		texts["environment"] = VillagerText{
 			Text:      "今日の電気は、地球温暖化を\n少し進めてしまっているかもしれない...",
 			Sentiment: "negative",

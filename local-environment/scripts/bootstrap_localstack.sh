@@ -95,17 +95,17 @@ ensure_lambda() {
 ensure_lambda_function_url() {
   # Lambda Function URL を作成 (HTTP API v2 形式のイベントを送るので Lambda コードと互換性あり)
   local name=$1
-  
+
   # Function URL が存在するか確認
   local url
   url=$(awsl lambda get-function-url-config --function-name "$name" --query 'FunctionUrl' --output text 2>/dev/null || true)
-  
+
   if [ -z "$url" ] || [ "$url" = "None" ]; then
     awsl lambda create-function-url-config \
       --function-name "$name" \
       --auth-type NONE \
       --cors AllowOrigins='*',AllowMethods='*',AllowHeaders='*' >/dev/null
-    
+
     # パブリックアクセス許可
     awsl lambda add-permission \
       --function-name "$name" \
@@ -113,7 +113,7 @@ ensure_lambda_function_url() {
       --statement-id FunctionURLAllowPublicAccess \
       --principal '*' \
       --function-url-auth-type NONE >/dev/null 2>&1 || true
-    
+
     url=$(awsl lambda get-function-url-config --function-name "$name" --query 'FunctionUrl' --output text)
     echo "[OK] Function URL created for ${name}: ${url}"
   else
@@ -128,10 +128,10 @@ main() {
   ensure_lambda "$POWER_FN" "$POWER_ZIP"
   ensure_lambda "$MANAGEMENT_FN" "$MANAGEMENT_ZIP"
   ensure_lambda_function_url "$MANAGEMENT_FN"
-  
+
   local mgmt_url
   mgmt_url=$(awsl lambda get-function-url-config --function-name "$MANAGEMENT_FN" --query 'FunctionUrl' --output text 2>/dev/null || echo "")
-  
+
   echo ""
   echo "[DONE] LocalStack bootstrap completed!"
   echo ""

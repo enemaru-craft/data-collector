@@ -2,6 +2,12 @@
 
 AWS リソースを LocalStack + Docker Compose でローカル再現します。Terraform は使いません。
 
+## 前提条件
+
+- Docker / Docker Compose
+- golang-migrate (`brew install golang-migrate`)
+- Go 1.21+
+
 ## 起動手順
 
 ```bash
@@ -9,9 +15,11 @@ AWS リソースを LocalStack + Docker Compose でローカル再現します�
 cd local-environment
 docker compose up -d
 
-# 2. LocalStack に Lambda/DynamoDB/API Gateway を作成
-chmod +x scripts/bootstrap_localstack.sh
-bash scripts/bootstrap_localstack.sh
+# 2. PostgreSQL マイグレーション (golang-migrate 使用)
+./scripts/migrate_postgres.sh
+
+# 3. LocalStack に Lambda/DynamoDB/Function URL を作成
+./scripts/bootstrap_localstack.sh
 ```
 
 ## コード変更時の反映
@@ -30,10 +38,30 @@ make local
 
 | サービス | ポート | 説明 |
 |---------|--------|------|
-| LocalStack | 4566 | Lambda, DynamoDB, API Gateway |
+| LocalStack | 4566 | Lambda, DynamoDB, Lambda Function URL |
 | PostgreSQL | 5432 | DB (user: postgres, pass: postgres, db: stg) |
 | Mosquitto | 1883, 9001 | MQTT ブローカー (1883=MQTT, 9001=WebSocket) |
 | mqtt-bridge | - | Mosquitto → Lambda を連携するブリッジ |
+
+## Lambda Function URL
+
+LocalStack OSS では HTTP API (apigatewayv2) がサポートされないため、Lambda Function URL を使用します。
+bootstrap 実行後に表示される URL を使用してください:
+
+```bash
+# 例: デバイス登録
+curl -X POST 'http://<function-url>/register-new-power-generation-module' \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"1","deviceId":"dev1","deviceType":"solar"}'
+
+# 例: 世界の状態取得
+curl -X POST 'http://<function-url>/get-current-world-state' \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"1"}'
+
+# 例: 最新電力取得
+curl 'http://<function-url>/get-latest-power?device_type=solar&session_id=1'
+```
 
 ## MQTT → Lambda 連携
 
@@ -42,13 +70,6 @@ make local
 ```bash
 # テスト (Mosquittoにpublish)
 mosquitto_pub -h localhost -p 1883 -t register/power -m '{"device_id":"dev1","session_id":"sess1","power":100}'
-```
-
-## API Gateway エンドポイント
-
-bootstrap 実行後に表示される URL を使用:
-```
-http://localhost:4566/restapis/<api_id>/$default/_user_request_/get-latest-power?device_type=solar&session_id=1
 ```
 
 ## 停止・リセット

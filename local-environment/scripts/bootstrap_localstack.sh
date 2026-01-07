@@ -92,87 +92,33 @@ ensure_lambda() {
   echo "[OK] Lambda ${name} env configured"
 }
 
-ensure_api_gateway() {
-  # LocalStack OSS では apigatewayv2 (HTTP API) は非対応なので REST API (apigateway) を使用
-  local api_id
-  api_id=$(awsl apigateway get-rest-apis --query "items[?name=='${API_NAME}'].id" --output text 2>/dev/null || true)
-  if [ -z "$api_id" ] || [ "$api_id" = "None" ]; then
-    api_id=$(awsl apigateway create-rest-api --name "$API_NAME" --query 'id' --output text)
-    echo "[OK] REST API created: ${api_id}"
+ensure_lambda_function_url() {
+  # Lambda Function URL を作成 (HTTP API v2 形式のイベントを送るので Lambda コードと互換性あり)
+  local name=$1
+  
+  # Function URL が存在するか確認
+  local url
+  url=$(awsl lambda get-function-url-config --function-name "$name" --query 'FunctionUrl' --output text 2>/dev/null || true)
+  
+  if [ -z "$url" ] || [ "$url" = "None" ]; then
+    awsl lambda create-function-url-config \
+      --function-name "$name" \
+      --auth-type NONE \
+      --cors AllowOrigins='*',AllowMethods='*',AllowHeaders='*' >/dev/null
+    
+    # パブリックアクセス許可
+    awsl lambda add-permission \
+      --function-name "$name" \
+      --action lambda:InvokeFunctionUrl \
+      --statement-id FunctionURLAllowPublicAccess \
+      --principal '*' \
+      --function-url-auth-type NONE >/dev/null 2>&1 || true
+    
+    url=$(awsl lambda get-function-url-config --function-name "$name" --query 'FunctionUrl' --output text)
+    echo "[OK] Function URL created for ${name}: ${url}"
   else
-    echo "[SKIP] REST API exists: ${api_id}"
+    echo "[SKIP] Function URL exists for ${name}: ${url}"
   fi
-
-  # Get root resource id
-  local root_id
-  root_id=$(awsl apigateway get-resources --rest-api-id "$api_id" --query "items[?path=='/'].id" --output text)
-
-  # Routes (same as Terraform)
-  local routes=(
-    "GET:get-latest-power"
-    "GET:get-latest-multiple-device-power"
-    "POST:register-new-power-generation-module"
-    "POST:turn-on-equipment"
-    "POST:turn-off-equipment"
-    "POST:get-current-world-state"
-    "GET:get-power-history"
-    "GET:get-game-result"
-    "POST:delete-session"
-  )
-
-  for route in "${routes[@]}"; do
-    local method="${route%%:*}"
-    local path="${route##*:}"
-
-    # Create resource if not exists
-    local resource_id
-    resource_id=$(awsl apigateway get-resources --rest-api-id "$api_id" --query "items[?pathPart=='${path}'].id" --output text 2>/dev/null || true)
-    if [ -z "$resource_id" ] || [ "$resource_id" = "None" ]; then
-      resource_id=$(awsl apigateway create-resource \
-        --rest-api-id "$api_id" \
-        --parent-id "$root_id" \
-        --path-part "$path" \
-        --query 'id' --output text)
-      echo "[OK] Resource created: /${path}"
-    fi
-
-    # Create method if not exists
-    if ! awsl apigateway get-method --rest-api-id "$api_id" --resource-id "$resource_id" --http-method "$method" >/dev/null 2>&1; then
-      awsl apigateway put-method \
-        --rest-api-id "$api_id" \
-        --resource-id "$resource_id" \
-        --http-method "$method" \
-        --authorization-type NONE >/dev/null
-      echo "[OK] Method added: ${method} /${path}"
-    fi
-
-    # Create integration
-    awsl apigateway put-integration \
-      --rest-api-id "$api_id" \
-      --resource-id "$resource_id" \
-      --http-method "$method" \
-      --type AWS_PROXY \
-      --integration-http-method POST \
-      --uri "arn:aws:apigateway:${REGION}:lambda:path/2015-03-31/functions/arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${MANAGEMENT_FN}/invocations" >/dev/null 2>&1 || true
-  done
-
-  # Deploy to 'local' stage
-  awsl apigateway create-deployment --rest-api-id "$api_id" --stage-name local >/dev/null 2>&1 || true
-  echo "[OK] Deployed to stage 'local'"
-
-  # Lambda permission
-  awsl lambda add-permission \
-    --function-name "$MANAGEMENT_FN" \
-    --action lambda:InvokeFunction \
-    --statement-id apigw-invoke \
-    --principal apigateway.amazonaws.com \
-    --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${api_id}/*/*/*" >/dev/null 2>&1 || true
-
-  echo ""
-  echo "=========================================="
-  echo "REST API URL: http://localhost:4566/restapis/${api_id}/local/_user_request_/"
-  echo "Example: curl http://localhost:4566/restapis/${api_id}/local/_user_request_/get-latest-power?device_type=solar&session_id=1"
-  echo "=========================================="
 }
 
 main() {
@@ -181,13 +127,28 @@ main() {
   ensure_dynamodb
   ensure_lambda "$POWER_FN" "$POWER_ZIP"
   ensure_lambda "$MANAGEMENT_FN" "$MANAGEMENT_ZIP"
-  ensure_api_gateway
+  ensure_lambda_function_url "$MANAGEMENT_FN"
+  
+  local mgmt_url
+  mgmt_url=$(awsl lambda get-function-url-config --function-name "$MANAGEMENT_FN" --query 'FunctionUrl' --output text 2>/dev/null || echo "")
+  
   echo ""
   echo "[DONE] LocalStack bootstrap completed!"
   echo ""
-  echo "Usage:"
-  echo "  MQTT publish to localhost:1883 topic 'register/power' -> triggers power Lambda"
-  echo "  HTTP API at http://localhost:4566/restapis/<api_id>/\$default/_user_request_<path>"
+  echo "=========================================="
+  echo "Management Lambda Function URL:"
+  echo "  ${mgmt_url}"
+  echo ""
+  echo "Example requests:"
+  echo "  curl -X POST '${mgmt_url}register-new-power-generation-module' \\"
+  echo "    -H 'Content-Type: application/json' \\"
+  echo "    -d '{\"sessionId\":\"1\",\"deviceId\":\"dev1\",\"deviceType\":\"solar\"}'"
+  echo ""
+  echo "  curl '${mgmt_url}get-latest-power?device_type=solar&session_id=1'"
+  echo ""
+  echo "MQTT:"
+  echo "  Publish to localhost:1883 topic 'register/power' -> triggers power Lambda"
+  echo "=========================================="
 }
 
 main "$@"

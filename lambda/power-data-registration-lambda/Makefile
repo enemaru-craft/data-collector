@@ -20,5 +20,16 @@ deploy: zip
 		--function-name $(FUNCTION_NAME) \
 		--zip-file fileb://$(ZIP_FILE)
 
+# LocalStack へデプロイ (make local で即反映)
+LOCALSTACK_ENDPOINT ?= http://localhost:4566
+deploy-local: zip
+	AWS_PAGER="" aws lambda update-function-code \
+		--endpoint-url $(LOCALSTACK_ENDPOINT) \
+		--region ap-northeast-1 \
+		--function-name $(FUNCTION_NAME) \
+		--zip-file fileb://$(ZIP_FILE)
+
+local: deploy-local
+
 clean:
 	rm -f $(BINARY_NAME) $(ZIP_FILE)

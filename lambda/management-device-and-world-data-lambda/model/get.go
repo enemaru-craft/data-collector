@@ -101,18 +101,19 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 }
 
 type CurrentWorldState struct {
-	State     State                   `json:"state"`
-	Texts     map[string]VillagerText `json:"texts"`
-	Variables Variables               `json:"variables"`
+	State     State     `json:"state"`
+	Texts     []string  `json:"texts"`
+	Variables Variables `json:"variables"`
+	FirePower float32   `json:"-"`
 }
 
 type State struct {
-	IsLightEnabled    bool `json:"isLightEnabled"`
-	IsTrainEnabled    bool `json:"isTrainEnabled"`
-	IsFactoryEnabled  bool `json:"isFactoryEnabled"`
-	IsHouseEnabled    bool `json:"isHouseEnabled"`
-	IsFacilityEnabled bool `json:"isFacilityEnabled"`
-	IsBlackout        bool `json:"isBlackout"`
+	HouseLitPercent    int  `json:"houseLitPercent"`
+	FacilityLitPercent int  `json:"facilityLitPercent"`
+	LightLitPercent    int  `json:"lightLitPercent"`
+	FactoryLitPercent  int  `json:"factoryLitPercent"`
+	IsTrainEnabled     bool `json:"isTrainEnabled"`
+	IsBlackout         bool `json:"isBlackout"`
 }
 
 type Variables struct {
@@ -133,7 +134,7 @@ type VillagerText struct {
 }
 
 // 村人のテキストを生成する関数
-func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled bool, firePower float32) map[string]VillagerText {
+func GenerateVillagersTexts(houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent int, isTrainEnabled bool, firePower float32) map[string]VillagerText {
 	texts := make(map[string]VillagerText)
 
 	// 電車
@@ -150,7 +151,7 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	}
 
 	// 街頭
-	if isLightEnabled {
+	if lightLitPercent > 0 {
 		texts["light"] = VillagerText{
 			Text:      "街灯がついて道が明るい!",
 			Sentiment: "positive",
@@ -163,7 +164,7 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	}
 
 	// 家
-	if isHouseEnabled {
+	if houseLitPercent > 0 {
 		texts["house"] = VillagerText{
 			Text:      "家にあたたかい光がともった!うれしい!",
 			Sentiment: "positive",
@@ -176,7 +177,7 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	}
 
 	// 公共施設
-	if isFacilityEnabled {
+	if facilityLitPercent > 0 {
 		texts["facility_firestation"] = VillagerText{
 			Text:      "消防士さんがいるからこれでいつでも安心だ!",
 			Sentiment: "positive",
@@ -197,7 +198,7 @@ func generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, is
 	}
 
 	// 工場
-	if isFactoryEnabled {
+	if factoryLitPercent > 0 {
 		texts["factory"] = VillagerText{
 			Text:      "工場が動いてるおかげで､みんなの生活が豊かになるぞ!",
 			Sentiment: "positive",
@@ -246,7 +247,7 @@ type DeviceDetail struct {
 func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error) {
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,blackout_count
+			house_lit_percent,facility_lit_percent,light_lit_percent,factory_lit_percent,is_train_enabled,is_blackout,villagers_text,blackout_count
 		FROM
 			world_state
 		WHERE
@@ -262,17 +263,18 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
+	var houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent int
+	var isTrainEnabled, isBlackout bool
 	var villagersTextBytes []byte
 	var blackoutCount int
 
 	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(
-		&isLightEnabled,
+		&houseLitPercent,
+		&facilityLitPercent,
+		&lightLitPercent,
+		&factoryLitPercent,
 		&isTrainEnabled,
-		&isFactoryEnabled,
 		&isBlackout,
-		&isHouseEnabled,
-		&isFacilityEnabled,
 		&villagersTextBytes,
 		&blackoutCount,
 	)
@@ -306,21 +308,13 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	}
 
 	var currentPowerConsumption float32
-	if isLightEnabled {
-		currentPowerConsumption += 5.0
-	}
+	currentPowerConsumption += 5.0 * float32(lightLitPercent) / 100.0
 	if isTrainEnabled {
 		currentPowerConsumption += 410.0
 	}
-	if isFactoryEnabled {
-		currentPowerConsumption += 300.0
-	}
-	if isHouseEnabled {
-		currentPowerConsumption += 300.0
-	}
-	if isFacilityEnabled {
-		currentPowerConsumption += 1015.0
-	}
+	currentPowerConsumption += 300.0 * float32(factoryLitPercent) / 100.0
+	currentPowerConsumption += 300.0 * float32(houseLitPercent) / 100.0
+	currentPowerConsumption += 1015.0 * float32(facilityLitPercent) / 100.0
 
 	// 前の停電状態を保存
 	previousBlackoutState := isBlackout
@@ -328,11 +322,11 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 	var surplusPower float32
 	if currentPowerConsumption > allPower {
 		isBlackout = true
-		isLightEnabled = false
+		houseLitPercent = 0
+		facilityLitPercent = 0
+		lightLitPercent = 0
+		factoryLitPercent = 0
 		isTrainEnabled = false
-		isFactoryEnabled = false
-		isHouseEnabled = false
-		isFacilityEnabled = false
 		surplusPower = 0.0
 	} else {
 		isBlackout = false
@@ -346,8 +340,8 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
-			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,blackout_count,timestamp)
+			world_state(session_id,house_lit_percent,facility_lit_percent,
+			light_lit_percent,factory_lit_percent,is_train_enabled,is_blackout,total_power,surplus_power,villagers_text,blackout_count,timestamp)
 		VALUES
 			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
 	`)
@@ -361,18 +355,18 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON, blackoutCount)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent, isTrainEnabled, isBlackout, allPower, surplusPower, villagersTextJSON, blackoutCount)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}
 
 	state := State{
-		IsLightEnabled:    isLightEnabled,
-		IsTrainEnabled:    isTrainEnabled,
-		IsFactoryEnabled:  isFactoryEnabled,
-		IsHouseEnabled:    isHouseEnabled,
-		IsFacilityEnabled: isFacilityEnabled,
-		IsBlackout:        isBlackout,
+		HouseLitPercent:    houseLitPercent,
+		FacilityLitPercent: facilityLitPercent,
+		LightLitPercent:    lightLitPercent,
+		FactoryLitPercent:  factoryLitPercent,
+		IsTrainEnabled:     isTrainEnabled,
+		IsBlackout:         isBlackout,
 	}
 
 	variables := Variables{
@@ -380,18 +374,9 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		SurplusPower: surplusPower,
 	}
 
-	// fire発電量を取得
-	var firePower float32 = 0
-	if latestPower["fire"] > 0 {
-		firePower = latestPower["fire"]
-	}
-
-	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
-
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersTexts,
+		Texts:     []string{},
 		Variables: variables,
 	}
 
@@ -401,7 +386,7 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error) {
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,blackout_count
+			house_lit_percent,facility_lit_percent,light_lit_percent,factory_lit_percent,is_train_enabled,is_blackout,villagers_text,blackout_count
 		FROM
 			world_state
 		WHERE
@@ -417,17 +402,18 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
+	var houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent int
+	var isTrainEnabled, isBlackout bool
 	var villagersTextBytes []byte
 	var blackoutCount int
 
 	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(
-		&isLightEnabled,
+		&houseLitPercent,
+		&facilityLitPercent,
+		&lightLitPercent,
+		&factoryLitPercent,
 		&isTrainEnabled,
-		&isFactoryEnabled,
 		&isBlackout,
-		&isHouseEnabled,
-		&isFacilityEnabled,
 		&villagersTextBytes,
 		&blackoutCount,
 	)
@@ -461,30 +447,22 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 	}
 
 	var currentPowerConsumption float32
-	if isLightEnabled {
-		currentPowerConsumption += 5.0
-	}
+	currentPowerConsumption += 5.0 * float32(lightLitPercent) / 100.0
 	if isTrainEnabled {
 		currentPowerConsumption += 410.0
 	}
-	if isFactoryEnabled {
-		currentPowerConsumption += 300.0
-	}
-	if isHouseEnabled {
-		currentPowerConsumption += 300.0
-	}
-	if isFacilityEnabled {
-		currentPowerConsumption += 1015.0
-	}
+	currentPowerConsumption += 300.0 * float32(factoryLitPercent) / 100.0
+	currentPowerConsumption += 300.0 * float32(houseLitPercent) / 100.0
+	currentPowerConsumption += 1015.0 * float32(facilityLitPercent) / 100.0
 
 	var surplusPower float32
 	if currentPowerConsumption > allPower {
 		isBlackout = true
-		isLightEnabled = false
+		houseLitPercent = 0
+		facilityLitPercent = 0
+		lightLitPercent = 0
+		factoryLitPercent = 0
 		isTrainEnabled = false
-		isFactoryEnabled = false
-		isHouseEnabled = false
-		isFacilityEnabled = false
 		surplusPower = 0.0
 	} else {
 		isBlackout = false
@@ -492,12 +470,12 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 	}
 
 	state := State{
-		IsLightEnabled:    isLightEnabled,
-		IsTrainEnabled:    isTrainEnabled,
-		IsFactoryEnabled:  isFactoryEnabled,
-		IsHouseEnabled:    isHouseEnabled,
-		IsFacilityEnabled: isFacilityEnabled,
-		IsBlackout:        isBlackout,
+		HouseLitPercent:    houseLitPercent,
+		FacilityLitPercent: facilityLitPercent,
+		LightLitPercent:    lightLitPercent,
+		FactoryLitPercent:  factoryLitPercent,
+		IsTrainEnabled:     isTrainEnabled,
+		IsBlackout:         isBlackout,
 	}
 
 	variables := Variables{
@@ -511,13 +489,11 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 		firePower = latestPower["fire"]
 	}
 
-	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
-
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersTexts,
+		Texts:     []string{},
 		Variables: variables,
+		FirePower: firePower,
 	}
 
 	return returnState, nil

@@ -23,8 +23,7 @@ type ManagementRepositoryInterface interface {
 	GetLatestPowerData(ctx context.Context, tx *sql.Tx, deviceType string, sessionId string) (float32, string, string, error)
 	GetMultipleDevicesPowerDataFromDynamoDB(ctx context.Context, deviceType string, sessionId string) (MultipleDevicePowerResponse, error)
 	CreateNewWorldIfNotExists(ctx context.Context, tx *sql.Tx, sessionID string) error
-	TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
-	TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error)
+	SetEquipmentPercent(ctx context.Context, tx *sql.Tx, sessionID string, equipment string, percent int) (CurrentWorldState, error)
 	GetCurrentWorldState(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
 	GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (CurrentWorldState, error)
 	GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (PowerChartData, error)

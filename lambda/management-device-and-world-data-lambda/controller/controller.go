@@ -259,23 +259,24 @@ func (c *ManagementController) GetLatestMultipleDevicePower(ctx context.Context,
 	}, nil
 }
 
-type equipmentRequest struct {
+type setEquipmentPercentRequest struct {
 	SessionId string `json:"sessionId"`
 	Equipment string `json:"equipment"`
+	Percent   int    `json:"percent"`
 }
 
-func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	var equipmentRequestBody equipmentRequest
-	if err := json.Unmarshal([]byte(req.Body), &equipmentRequestBody); err != nil {
+func (c *ManagementController) SetEquipmentPercent(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	var requestBody setEquipmentPercentRequest
+	if err := json.Unmarshal([]byte(req.Body), &requestBody); err != nil {
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 400,
 			Body:       fmt.Sprintf("Invalid request body: %v", err),
 		}, nil
 	}
 
-	if equipmentRequestBody.Equipment == "" {
+	if requestBody.Equipment == "" {
 		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
+			StatusCode: 400,
 			Body:       "Missing equipment",
 		}, nil
 	}
@@ -293,74 +294,7 @@ func (c *ManagementController) TurnOnEquipment(ctx context.Context, req events.A
 		}
 	}()
 
-	currentState, err := c.repo.TurnOnEquipment(ctx, tx, equipmentRequestBody.SessionId, equipmentRequestBody.Equipment)
-	if err != nil {
-		tx.Rollback()
-		var lErr *custmerr.LogicalErr
-		var tErr *custmerr.TechnicalErr
-		switch {
-		case errors.As(err, &lErr):
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: 404,
-				Body:       fmt.Sprintf("Session not found: %v", err),
-			}, nil
-
-		case errors.As(err, &tErr):
-			return events.APIGatewayV2HTTPResponse{
-				StatusCode: 500,
-				Body:       fmt.Sprintf("Technical error occurred: %v", err),
-			}, nil
-		}
-	}
-
-	jsonBytes, err := json.Marshal(currentState)
-	if err != nil {
-		// JSONへの変換に失敗した場合のエラーハンドリング
-		tx.Rollback()
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
-			Body:       fmt.Sprintf("Failed to marshal JSON: %v", err),
-		}, nil
-	}
-
-	tx.Commit()
-
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 200,
-		Body:       string(jsonBytes),
-	}, nil
-}
-
-func (c *ManagementController) TurnOffEquipment(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	var equipmentRequestBody equipmentRequest
-	if err := json.Unmarshal([]byte(req.Body), &equipmentRequestBody); err != nil {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 400,
-			Body:       fmt.Sprintf("Invalid request body: %v", err),
-		}, nil
-	}
-
-	if equipmentRequestBody.Equipment == "" {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
-			Body:       "Missing equipment",
-		}, nil
-	}
-
-	tx, err := c.repo.BeginTx(ctx, nil)
-	if err != nil {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 500,
-			Body:       fmt.Sprintf("Failed to begin transaction: %v", err),
-		}, nil
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-		}
-	}()
-
-	currentState, err := c.repo.TurnOffEquipment(ctx, tx, equipmentRequestBody.SessionId, equipmentRequestBody.Equipment)
+	currentState, err := c.repo.SetEquipmentPercent(ctx, tx, requestBody.SessionId, requestBody.Equipment, requestBody.Percent)
 	if err != nil {
 		tx.Rollback()
 		var lErr *custmerr.LogicalErr
@@ -758,19 +692,19 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 	}
 
 	// インフラの快適さに関する苦情人数とスコア
-	if !currentWorldState.State.IsLightEnabled {
+	if currentWorldState.State.LightLitPercent == 0 {
 		infrastructureComfortNumber += 100 / 6
 	}
 	if !currentWorldState.State.IsTrainEnabled {
 		infrastructureComfortNumber += 100 / 6
 	}
-	if !currentWorldState.State.IsFactoryEnabled {
+	if currentWorldState.State.FactoryLitPercent == 0 {
 		infrastructureComfortNumber += 100 / 6
 	}
-	if currentWorldState.State.IsHouseEnabled {
+	if currentWorldState.State.HouseLitPercent > 0 {
 		infrastructureComfortNumber += 100 / 6
 	}
-	if currentWorldState.State.IsFacilityEnabled {
+	if currentWorldState.State.FacilityLitPercent > 0 {
 		infrastructureComfortNumber += 100 / 6
 	}
 	infrastructureComfortScore = (300.0 - float64(infrastructureComfortNumber)) / 3
@@ -821,7 +755,14 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 		CO2ReductionAmount: CO2ReductionAmount,
 		Happiness:          happinessDetail,
-		VillagersTexts:     currentWorldState.Texts,
+		VillagersTexts: model.GenerateVillagersTexts(
+			currentWorldState.State.HouseLitPercent,
+			currentWorldState.State.FacilityLitPercent,
+			currentWorldState.State.LightLitPercent,
+			currentWorldState.State.FactoryLitPercent,
+			currentWorldState.State.IsTrainEnabled,
+			currentWorldState.FirePower,
+		),
 	}
 
 	jsonGameResult, err := json.Marshal(gameResult)

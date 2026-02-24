@@ -91,6 +91,19 @@ services:
       - LAMBDA_FUNCTION_NAME=stg_power_data_registration_lambda
     restart: unless-stopped
 
+  # Lambda リバースプロキシ (固定URL http://localhost:8080 → Lambda Function URL)
+  nginx:
+    image: nginx:alpine
+    container_name: data-collector-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      localstack:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   localstack-data:

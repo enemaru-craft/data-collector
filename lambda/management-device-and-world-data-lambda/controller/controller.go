@@ -649,17 +649,17 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 	if environmentProblemScore >= 80 {
 		environmentProblemComment = CommentDetail{
-			Text:      "街の空気がきれいでうれしい!",
+			Text:      "The air in the city is clean and fresh!",
 			Sentiment: "positive",
 		}
 	} else if environmentProblemScore >= 50 {
 		environmentProblemComment = CommentDetail{
-			Text:      "街の空気が少し汚れているかもしれない...",
+			Text:      "The air might be getting a little polluted...",
 			Sentiment: "positive",
 		}
 	} else {
 		environmentProblemComment = CommentDetail{
-			Text:      "街の空気が汚れていて住みにくい...",
+			Text:      "The air is polluted and it's hard to live here...",
 			Sentiment: "negative",
 		}
 	}
@@ -676,17 +676,17 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 	if powerStabilityScore >= 80 {
 		powerStabilityComment = CommentDetail{
-			Text:      "街の電力が安定していて快適!",
+			Text:      "The power supply is stable and comfortable!",
 			Sentiment: "positive",
 		}
 	} else if powerStabilityScore >= 50 {
 		powerStabilityComment = CommentDetail{
-			Text:      "街の電力が少し不安定かもしれない...",
+			Text:      "The power supply might be a bit unstable...",
 			Sentiment: "positive",
 		}
 	} else {
 		powerStabilityComment = CommentDetail{
-			Text:      "街の電力が不安定で住みにくい...",
+			Text:      "The power is unstable and it's hard to live here...",
 			Sentiment: "negative",
 		}
 	}
@@ -711,17 +711,17 @@ func (c *ManagementController) GetGameResult(ctx context.Context, req events.API
 
 	if infrastructureComfortScore >= 80 {
 		infrastructureComfortComment = CommentDetail{
-			Text:      "街のインフラが充実していて快適!",
+			Text:      "The city's infrastructure is great and comfortable!",
 			Sentiment: "positive",
 		}
 	} else if infrastructureComfortScore >= 50 {
 		infrastructureComfortComment = CommentDetail{
-			Text:      "街のインフラがもう少し充実するといいな",
+			Text:      "It would be nice if the infrastructure improved a bit more.",
 			Sentiment: "positive",
 		}
 	} else {
 		infrastructureComfortComment = CommentDetail{
-			Text:      "街のインフラが不便で住みにくい...",
+			Text:      "The infrastructure is poor and it's hard to live here...",
 			Sentiment: "negative",
 		}
 	}

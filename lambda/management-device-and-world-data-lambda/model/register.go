@@ -260,7 +260,6 @@ func (repo *ManagementRepository) SetEquipmentPercent(ctx context.Context, tx *s
 
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     []string{},
 		Variables: variables,
 	}
 

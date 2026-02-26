@@ -101,10 +101,10 @@ func (repo *ManagementRepository) GetMultipleDevicesPowerDataFromDynamoDB(ctx co
 }
 
 type CurrentWorldState struct {
-	State     State     `json:"state"`
-	Texts     []string  `json:"texts"`
-	Variables Variables `json:"variables"`
-	FirePower float32   `json:"-"`
+	State          State                   `json:"state"`
+	Variables      Variables               `json:"variables"`
+	VillagersTexts map[string]VillagerText `json:"texts"`
+	FirePower      float32                 `json:"-"`
 }
 
 type State struct {
@@ -374,10 +374,17 @@ func (repo *ManagementRepository) GetCurrentWorldState(ctx context.Context, tx *
 		SurplusPower: surplusPower,
 	}
 
+	// 火力発電量を取得
+	var firePower float32 = 0
+	if latestPower["fire"] > 0 {
+		firePower = latestPower["fire"]
+	}
+
 	returnState := CurrentWorldState{
-		State:     state,
-		Texts:     []string{},
-		Variables: variables,
+		State:          state,
+		Variables:      variables,
+		VillagersTexts: GenerateVillagersTexts(houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent, isTrainEnabled, firePower),
+		FirePower:      firePower,
 	}
 
 	return returnState, nil
@@ -490,10 +497,10 @@ func (repo *ManagementRepository) GetCurrentWorldStateWithoutChanges(ctx context
 	}
 
 	returnState := CurrentWorldState{
-		State:     state,
-		Texts:     []string{},
-		Variables: variables,
-		FirePower: firePower,
+		State:          state,
+		Variables:      variables,
+		VillagersTexts: GenerateVillagersTexts(houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent, isTrainEnabled, firePower),
+		FirePower:      firePower,
 	}
 
 	return returnState, nil

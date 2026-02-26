@@ -137,93 +137,93 @@ type VillagerText struct {
 func GenerateVillagersTexts(houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent int, isTrainEnabled bool, firePower float32) map[string]VillagerText {
 	texts := make(map[string]VillagerText)
 
-	// 電車
+	// Train
 	if isTrainEnabled {
 		texts["train"] = VillagerText{
-			Text:      "電車が来た!遠くまで行けるぞ!",
+			Text:      "The train is here! Now I can travel far!",
 			Sentiment: "positive",
 		}
 	} else {
 		texts["train"] = VillagerText{
-			Text:      "電車が来なくて出かけられない...",
+			Text:      "No trains running... I can't go anywhere...",
 			Sentiment: "negative",
 		}
 	}
 
-	// 街頭
+	// Street lights
 	if lightLitPercent > 0 {
 		texts["light"] = VillagerText{
-			Text:      "街灯がついて道が明るい!",
+			Text:      "The street lights are on and the roads are bright!",
 			Sentiment: "positive",
 		}
 	} else {
 		texts["light"] = VillagerText{
-			Text:      "街灯が消えて道が真っ暗だ...",
+			Text:      "The street lights are off and it's pitch dark...",
 			Sentiment: "negative",
 		}
 	}
 
-	// 家
+	// Houses
 	if houseLitPercent > 0 {
 		texts["house"] = VillagerText{
-			Text:      "家にあたたかい光がともった!うれしい!",
+			Text:      "Warm light fills our home! So happy!",
 			Sentiment: "positive",
 		}
 	} else {
 		texts["house"] = VillagerText{
-			Text:      "家が冷たく感じる...",
+			Text:      "The house feels so cold...",
 			Sentiment: "negative",
 		}
 	}
 
-	// 公共施設
+	// Public facilities
 	if facilityLitPercent > 0 {
 		texts["facility_firestation"] = VillagerText{
-			Text:      "消防士さんがいるからこれでいつでも安心だ!",
+			Text:      "The firefighters are here, so we're always safe!",
 			Sentiment: "positive",
 		}
 		texts["facility_shoppingmall"] = VillagerText{
-			Text:      "何でもそろって便利だ!",
+			Text:      "Everything we need is available! So convenient!",
 			Sentiment: "positive",
 		}
 	} else {
 		texts["facility_firestation"] = VillagerText{
-			Text:      "消防署が動かないと非常時に対応できないぞ...",
+			Text:      "The fire station is down... We can't handle emergencies...",
 			Sentiment: "negative",
 		}
 		texts["facility_shoppingmall"] = VillagerText{
-			Text:      "買い物できないと不便だな...",
+			Text:      "Can't go shopping... That's really inconvenient...",
 			Sentiment: "negative",
 		}
 	}
 
-	// 工場
+	// Factory
 	if factoryLitPercent > 0 {
 		texts["factory"] = VillagerText{
-			Text:      "工場が動いてるおかげで､みんなの生活が豊かになるぞ!",
+			Text:      "The factory is running! Everyone's life is getting better!",
 			Sentiment: "positive",
 		}
 	} else {
 		texts["factory"] = VillagerText{
-			Text:      "仕事が止まってしまった...",
+			Text:      "Work has stopped...",
 			Sentiment: "negative",
 		}
 	}
 
-	// 火力発電による環境への影響
+	// Environmental impact from thermal power
 	if firePower == 0 {
 		texts["environment"] = VillagerText{
-			Text:      "CO2を出さない電気が\n未来の地球を救うんだね",
+			Text:      "CO2-free electricity is\nsaving the future of our planet!",
 			Sentiment: "positive",
 		}
 	} else if firePower >= 1 && firePower <= 500 {
 		texts["environment"] = VillagerText{
-			Text:      "環境にやさしい発電とパワフルな火力発電の\nバランスが大事なんだね ",
+			Text:      "Balancing eco-friendly power and\nthermal power is important!",
 			Sentiment: "positive",
 		}
 	} else if firePower >= 501 && firePower <= 1000 {
 		texts["environment"] = VillagerText{
-			Text:      "今日の電気は、地球温暖化を\n少し進めてしまっているかもしれない...",
+			Text:      "Today's electricity might be\ncontributing to global warming...",
 			Sentiment: "negative",
 		}
 	}

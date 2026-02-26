@@ -43,11 +43,7 @@ func (m *mockRepo) GetMultipleDevicesPowerDataFromDynamoDB(ctx context.Context, 
 	return model.MultipleDevicePowerResponse{}, nil
 }
 
-func (m *mockRepo) TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (model.CurrentWorldState, error) {
-	return model.CurrentWorldState{}, nil
-}
-
-func (m *mockRepo) TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (model.CurrentWorldState, error) {
+func (m *mockRepo) SetEquipmentPercent(ctx context.Context, tx *sql.Tx, sessionID string, equipment string, percent int) (model.CurrentWorldState, error) {
 	return model.CurrentWorldState{}, nil
 }
 
@@ -55,8 +51,32 @@ func (m *mockRepo) GetCurrentWorldState(ctx context.Context, tx *sql.Tx, session
 	return model.CurrentWorldState{}, nil
 }
 
+func (m *mockRepo) GetCurrentWorldStateWithoutChanges(ctx context.Context, tx *sql.Tx, sessionID string) (model.CurrentWorldState, error) {
+	return model.CurrentWorldState{}, nil
+}
+
 func (m *mockRepo) GetPowerHistory(ctx context.Context, tx *sql.Tx, sessionID string) (model.PowerChartData, error) {
 	return model.PowerChartData{}, nil
+}
+
+func (m *mockRepo) CalculateTotalPower(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (float64, error) {
+	return 0, nil
+}
+
+func (m *mockRepo) CalculateTotalPowerByPowerGenerationType(ctx context.Context, tx *sql.Tx, sessionId string, bucketSeconds int) (model.TotalPowerByPowerGenerationType, error) {
+	return model.TotalPowerByPowerGenerationType{}, nil
+}
+
+func (m *mockRepo) GetMaxPowerGeneration(ctx context.Context, tx *sql.Tx, sessionID string) (model.MaxPowerGeneration, error) {
+	return model.MaxPowerGeneration{}, nil
+}
+
+func (m *mockRepo) GetBlackoutCount(ctx context.Context, tx *sql.Tx, sessionID string) (int, error) {
+	return 0, nil
+}
+
+func (m *mockRepo) DeleteSessionAndRelatedData(ctx context.Context, tx *sql.Tx, sessionID string) error {
+	return nil
 }
 
 func TestGetLatestPower_ReturnErrorIfReceivedInvalidJSON(t *testing.T) {

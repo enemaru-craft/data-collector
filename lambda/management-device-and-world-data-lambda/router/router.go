@@ -41,12 +41,8 @@ func (r *Router) Route(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return ctr.GetLatestMultipleDevicePower(ctx, req)
 	}
 
-	if method == "POST" && path == "/turn-on-equipment" {
-		return ctr.TurnOnEquipment(ctx, req)
-	}
-
-	if method == "POST" && path == "/turn-off-equipment" {
-		return ctr.TurnOffEquipment(ctx, req)
+	if method == "POST" && path == "/set-equipment-percent" {
+		return ctr.SetEquipmentPercent(ctx, req)
 	}
 
 	if method == "POST" && path == "/get-current-world-state" {

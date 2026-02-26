@@ -121,7 +121,7 @@ func (repo *ManagementRepository) CreateNewWorldIfNotExists(ctx context.Context,
 	return nil
 }
 
-func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error) {
+func (repo *ManagementRepository) SetEquipmentPercent(ctx context.Context, tx *sql.Tx, sessionID string, equipment string, percent int) (CurrentWorldState, error) {
 	// DynamoDBから最新の発電量を取得
 	latestPower := make(map[string]float32)
 	var allPower float32
@@ -142,7 +142,7 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	// 現在の世界の状態を取得
 	getWorldStmt, err := tx.PrepareContext(ctx, `
 		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,villagers_text,blackout_count
+			house_lit_percent,facility_lit_percent,light_lit_percent,factory_lit_percent,is_train_enabled,is_blackout,villagers_text,blackout_count
 		FROM
 			world_state
 		WHERE
@@ -158,66 +158,56 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	}
 	defer getWorldStmt.Close()
 
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
+	var houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent int
+	var isTrainEnabled, isBlackout bool
 	var villagersTextBytes []byte
 	var blackoutCount int
 
-	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isBlackout, &isHouseEnabled, &isFacilityEnabled, &villagersTextBytes, &blackoutCount)
+	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&houseLitPercent, &facilityLitPercent, &lightLitPercent, &factoryLitPercent, &isTrainEnabled, &isBlackout, &villagersTextBytes, &blackoutCount)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
 	}
 
-	var villagersText []string
-	if len(villagersTextBytes) > 0 {
-		if err := json.Unmarshal(villagersTextBytes, &villagersText); err != nil {
-			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to unmarshal villagers_text: %w", err)}
-		}
-	}
-
-	// 今回ONにする機器に応じて、対応するフラグを更新
+	// 指定された機器のパーセントを更新
 	switch equipment {
-	case "light":
-		isLightEnabled = true
-	case "train":
-		isTrainEnabled = true
-	case "factory":
-		isFactoryEnabled = true
 	case "house":
-		isHouseEnabled = true
+		houseLitPercent = percent
 	case "facility":
-		isFacilityEnabled = true
+		facilityLitPercent = percent
+	case "light":
+		lightLitPercent = percent
+	case "factory":
+		factoryLitPercent = percent
+	case "train":
+		if percent == 0 {
+			isTrainEnabled = false
+		} else {
+			isTrainEnabled = true
+		}
 	default:
 		return CurrentWorldState{}, fmt.Errorf("unknown equipment type: %s", equipment)
 	}
 
 	// 新しい状態の消費電力を計算
 	var newPowerConsumption float32
-	if isLightEnabled {
-		newPowerConsumption += 10.0
-	}
+	newPowerConsumption += 5.0 * float32(lightLitPercent) / 100.0
 	if isTrainEnabled {
-		newPowerConsumption += 5.0
+		newPowerConsumption += 410.0
 	}
-	if isFactoryEnabled {
-		newPowerConsumption += 7.0
-	}
-	if isHouseEnabled {
-		newPowerConsumption += 300.0
-	}
-	if isFacilityEnabled {
-		newPowerConsumption += 1015.0
-	}
+	newPowerConsumption += 300.0 * float32(factoryLitPercent) / 100.0
+	newPowerConsumption += 300.0 * float32(houseLitPercent) / 100.0
+	newPowerConsumption += 1015.0 * float32(facilityLitPercent) / 100.0
 
 	// 以前のblackout状態を保存
 	previousBlackoutState := isBlackout
 
 	var surplusPower float32
 	if newPowerConsumption > allPower {
-		isLightEnabled = false
+		houseLitPercent = 0
+		facilityLitPercent = 0
+		lightLitPercent = 0
+		factoryLitPercent = 0
 		isTrainEnabled = false
-		isFactoryEnabled = false
-		isHouseEnabled = false
-		isFacilityEnabled = false
 		isBlackout = true
 		surplusPower = 0.0
 	} else {
@@ -232,8 +222,8 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 
 	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO
-			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,blackout_count,timestamp)
+			world_state(session_id,house_lit_percent,facility_lit_percent,
+			light_lit_percent,factory_lit_percent,is_train_enabled,is_blackout,total_power,surplus_power,villagers_text,blackout_count,timestamp)
 		VALUES
 			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
 	`)
@@ -242,25 +232,25 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 	}
 	defer registerNewWorldStateStmt.Close()
 
-	// APIレスポンス用にはgenerateVillagersTextsを使用し、DBには空配列を保存
+	// APIレスポンス用にはDBには空配列を保存
 	emptyTexts := []string{}
 	villagersTextJSON, err := json.Marshal(emptyTexts)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
 	}
 
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON, blackoutCount)
+	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, houseLitPercent, facilityLitPercent, lightLitPercent, factoryLitPercent, isTrainEnabled, isBlackout, allPower, surplusPower, villagersTextJSON, blackoutCount)
 	if err != nil {
 		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
 	}
 
 	state := State{
-		IsLightEnabled:    isLightEnabled,
-		IsTrainEnabled:    isTrainEnabled,
-		IsFactoryEnabled:  isFactoryEnabled,
-		IsHouseEnabled:    isHouseEnabled,
-		IsFacilityEnabled: isFacilityEnabled,
-		IsBlackout:        isBlackout,
+		HouseLitPercent:    houseLitPercent,
+		FacilityLitPercent: facilityLitPercent,
+		LightLitPercent:    lightLitPercent,
+		FactoryLitPercent:  factoryLitPercent,
+		IsTrainEnabled:     isTrainEnabled,
+		IsBlackout:         isBlackout,
 	}
 
 	variables := Variables{
@@ -268,182 +258,8 @@ func (repo *ManagementRepository) TurnOnEquipment(ctx context.Context, tx *sql.T
 		SurplusPower: surplusPower,
 	}
 
-	// fire発電量を取得
-	var firePower float32 = 0
-	if latestPower["fire"] > 0 {
-		firePower = latestPower["fire"]
-	}
-
-	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
-
 	returnState := CurrentWorldState{
 		State:     state,
-		Texts:     villagersTexts,
-		Variables: variables,
-	}
-
-	return returnState, nil
-}
-
-func (repo *ManagementRepository) TurnOffEquipment(ctx context.Context, tx *sql.Tx, sessionID string, equipment string) (CurrentWorldState, error) {
-	// DynamoDBから最新の発電量を取得
-	latestPower := make(map[string]float32)
-	var allPower float32
-
-	// 各デバイスタイプについてDynamoDBから最新データを取得
-	deviceTypes := []string{"solar", "geothermal", "hydrogen", "wind", "fire"}
-	for _, deviceType := range deviceTypes {
-		response, err := repo.GetMultipleDevicesPowerDataFromDynamoDB(ctx, deviceType, sessionID)
-		if err != nil {
-			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to get power data from DynamoDB: %w", err)}
-		}
-		if response.TotalPower > 0 {
-			latestPower[deviceType] = response.TotalPower
-			allPower += response.TotalPower
-		}
-	}
-
-	// 現在の世界の状態を取得
-	getWorldStmt, err := tx.PrepareContext(ctx, `
-		SELECT
-			is_light_enabled,is_train_enabled,is_factory_enabled,is_house_enabled,is_facility_enabled,is_blackout,villagers_text,blackout_count
-		FROM
-			world_state
-		WHERE
-			session_id = $1
-		ORDER BY
-			timestamp
-		DESC
-		LIMIT
-			1;
-	`)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare get world state statement: %w", err)}
-	}
-	defer getWorldStmt.Close()
-
-	var isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled bool
-	var villagersTextBytes []byte
-	var blackoutCount int
-
-	err = getWorldStmt.QueryRowContext(ctx, sessionID).Scan(&isLightEnabled, &isTrainEnabled, &isFactoryEnabled, &isHouseEnabled, &isFacilityEnabled, &isBlackout, &villagersTextBytes, &blackoutCount)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to scan world state: %w", err)}
-	}
-
-	var villagersText []string
-	if len(villagersTextBytes) > 0 {
-		if err := json.Unmarshal(villagersTextBytes, &villagersText); err != nil {
-			return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to unmarshal villagers_text: %w", err)}
-		}
-	}
-
-	// オフにする機器に応じてフラグを更新
-	switch equipment {
-	case "light":
-		isLightEnabled = false
-	case "train":
-		isTrainEnabled = false
-	case "factory":
-		isFactoryEnabled = false
-	case "house":
-		isHouseEnabled = false
-	case "facility":
-		isFacilityEnabled = false
-	default:
-		return CurrentWorldState{}, fmt.Errorf("unknown equipment type: %s", equipment)
-	}
-
-	var currentPowerConsumption float32
-	if isLightEnabled {
-		currentPowerConsumption += 10.0
-	}
-	if isTrainEnabled {
-		currentPowerConsumption += 5.0
-	}
-	if isFactoryEnabled {
-		currentPowerConsumption += 7.0
-	}
-	if isHouseEnabled {
-		currentPowerConsumption += 300.0
-	}
-	if isFacilityEnabled {
-		currentPowerConsumption += 1015.0
-	}
-
-	// 以前のblackout状態を保存
-	previousBlackoutState := isBlackout
-
-	var surplusPower float32
-	if currentPowerConsumption > allPower {
-		isBlackout = true
-		isLightEnabled = false
-		isTrainEnabled = false
-		isFactoryEnabled = false
-		isHouseEnabled = false
-		isFacilityEnabled = false
-		surplusPower = 0.0
-	} else {
-		isBlackout = false
-		surplusPower = allPower - currentPowerConsumption
-	}
-
-	// blackout状態が変化した場合（停電が発生した場合）にカウントを増加
-	if !previousBlackoutState && isBlackout {
-		blackoutCount++
-	}
-
-	registerNewWorldStateStmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO
-			world_state(session_id,is_light_enabled,is_train_enabled,
-			is_factory_enabled,is_blackout,is_house_enabled,is_facility_enabled,total_power,surplus_power,villagers_text,blackout_count,timestamp)
-		VALUES
-			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
-	`)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to prepare register new world state statement: %w", err)}
-	}
-	defer registerNewWorldStateStmt.Close()
-
-	// APIレスポンス用にはgenerateVillagersTextsを使用し、DBには空配列を保存
-	emptyTexts := []string{}
-	villagersTextJSON, err := json.Marshal(emptyTexts)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to marshal villagers_text: %w", err)}
-	}
-
-	_, err = registerNewWorldStateStmt.ExecContext(ctx, sessionID, isLightEnabled, isTrainEnabled, isFactoryEnabled, isBlackout, isHouseEnabled, isFacilityEnabled, allPower, surplusPower, villagersTextJSON, blackoutCount)
-	if err != nil {
-		return CurrentWorldState{}, &custmerr.TechnicalErr{Err: fmt.Errorf("failed to insert new world state: %w", err)}
-	}
-
-	state := State{
-		IsLightEnabled:    isLightEnabled,
-		IsTrainEnabled:    isTrainEnabled,
-		IsFactoryEnabled:  isFactoryEnabled,
-		IsHouseEnabled:    isHouseEnabled,
-		IsFacilityEnabled: isFacilityEnabled,
-		IsBlackout:        isBlackout,
-	}
-
-	variables := Variables{
-		TotalPower:   allPower,
-		SurplusPower: surplusPower,
-	}
-
-	// fire発電量を取得
-	var firePower float32 = 0
-	if latestPower["fire"] > 0 {
-		firePower = latestPower["fire"]
-	}
-
-	// 村人のテキストを生成
-	villagersTexts := generateVillagersTexts(isLightEnabled, isTrainEnabled, isFactoryEnabled, isHouseEnabled, isFacilityEnabled, firePower)
-
-	returnState := CurrentWorldState{
-		State:     state,
-		Texts:     villagersTexts,
 		Variables: variables,
 	}
 

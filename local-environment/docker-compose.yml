@@ -35,7 +35,6 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./certs:/certs
-      - ../migrations:/docker-entrypoint-initdb.d
     command: >-
       bash -c "
         if [ ! -f /certs/server.key ]; then
@@ -81,6 +80,8 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       - MQTT_BROKER=mosquitto
       - MQTT_PORT=1883
@@ -89,7 +90,25 @@ services:
       - AWS_REGION=ap-northeast-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
-      - LAMBDA_FUNCTION_NAME=stg_power_data_registration_lambda
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=stg
+      - DYNAMODB_TABLE=tmp_table
+    restart: unless-stopped
+
+  # Lambda リバースプロキシ (固定URL http://localhost:8080 → Lambda Function URL)
+  nginx:
+    image: nginx:alpine
+    container_name: data-collector-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      localstack:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

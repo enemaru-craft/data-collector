@@ -147,6 +147,16 @@ server {
 
     # LocalStack の Lambda Function URL へプロキシ
     location / {
+        # CORS 設定 (always を付けないと 4xx/5xx でヘッダーが消える)
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+
+        # OPTIONS プリフライトリクエストは即座に返す
+        if (\$request_method = OPTIONS) {
+            return 204;
+        }
+
         resolver 127.0.0.11 valid=10s;
         set \$upstream http://data-collector-localstack:4566;
         proxy_pass \$upstream;
@@ -154,6 +164,9 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        # Origin / Referer ヘッダーを除去して LocalStack の CORS チェックを回避
+        proxy_set_header Origin "";
+        proxy_set_header Referer "";
         proxy_read_timeout 30s;
     }
 }

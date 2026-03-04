@@ -23,77 +23,15 @@ docker compose up -d
 ./scripts/bootstrap_localstack.sh
 ```
 
-bootstrap 完了後、以下のような URL が表示されます（この URL を使用）:
-```
-Management Lambda Function URL:
-  http://xxxxx.lambda-url.ap-northeast-1.localhost.localstack.cloud:4566/
-```
-
 ## サービス構成
 
 | サービス | ホスト:ポート | 説明 |
 |---------|--------------|------|
+| nginx | localhost:8080 | リバースプロキシ（Lambda Function URL への固定エントリポイント） |
 | LocalStack | localhost:4566 | Lambda, DynamoDB |
 | PostgreSQL | localhost:5432 | DB (user: postgres, pass: postgres, db: stg) |
 | Mosquitto (MQTT) | localhost:1883 | MQTT ブローカー |
 | Mosquitto (WebSocket) | localhost:9001 | MQTT over WebSocket |
-
-## API の使い方
-
-### Function URL の取得
-
-```bash
-docker compose exec localstack awslocal lambda get-function-url-config \
-  --function-name stg_management_device_and_world_data_lambda \
-  --query 'FunctionUrl' --output text
-```
-
-### 1. デバイス登録 (必須・最初に実行)
-
-電力データを送信する前に、デバイスを登録する必要があります。
-
-```bash
-curl -X POST 'http://<function-url>/register-new-power-generation-module' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "sessionId": "1",
-    "deviceId": "solar-001",
-    "deviceType": "solar"
-  }'
-```
-
-### 2. MQTT で電力データ送信
-
-```bash
-docker compose exec mosquitto mosquitto_pub \
-  -h localhost -p 1883 -t register/power \
-  -m '{
-    "sessionId": "1",
-    "deviceId": "solar-001",
-    "deviceType": "solar",
-    "power": 150.5,
-    "gpsLat": "35.6812",
-    "gpsLon": "139.7671"
-  }'
-```
-
-### 3. 電力データ取得
-
-```bash
-# 単一デバイスの最新電力
-curl 'http://<function-url>/get-latest-power?device_type=solar&session_id=1'
-
-# 複数デバイスの電力合計
-curl 'http://<function-url>/get-latest-multiple-device-power?device_type=solar&session_id=1'
-```
-
-### 4. 世界の状態取得
-
-```bash
-curl -X POST 'http://<function-url>/get-current-world-state' \
-  -H 'Content-Type: application/json' \
-  -d '{"sessionId": "1"}'
-```
 
 ## Lambda コード変更時の反映
 
@@ -107,18 +45,6 @@ cd lambda/power-data-registration-lambda
 make local
 ```
 
-## ログ確認
-
-```bash
-# mqtt-bridge (MQTT → Lambda 連携)
-docker compose logs -f mqtt-bridge
-
-# LocalStack
-docker compose logs -f localstack
-
-# PostgreSQL
-docker compose logs -f postgres
-```
 
 ## データ確認
 
@@ -152,7 +78,19 @@ docker compose down -v
 
 **原因**: Lambda Function URL を使う必要があります
 
-**解決**: `http://xxxxx.lambda-url.ap-northeast-1.localhost.localstack.cloud:4566/...` の形式で URL を使用してください。
+**解決**: nginx 経由で `http://localhost:8080/...` にアクセスしてください。直接アクセスする場合は `http://xxxxx.lambda-url.ap-northeast-1.localhost.localstack.cloud:4566/...` の形式で URL を使用してください。
+
+### ブラウザから API にアクセスすると CORS エラー
+
+**原因**: Lambda Function URL に直接アクセスしている
+
+**解決**: nginx 経由（`http://localhost:8080`）でアクセスしてください。nginx が CORS ヘッダーを自動付与します。
+
+### nginx が 502 Bad Gateway を返す
+
+**原因**: LocalStack がまだ起動完了していない、または `bootstrap_localstack.sh` 未実行
+
+**解決**: `docker compose logs localstack` で起動状態を確認し、`./scripts/bootstrap_localstack.sh` を実行してから nginx を再起動してください（`docker compose restart nginx`）。
 
 ### マイグレーションエラー
 

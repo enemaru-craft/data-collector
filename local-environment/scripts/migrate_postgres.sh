@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # PostgreSQL マイグレーションスクリプト (golang-migrate 使用)
 # このスクリプトはローカル開発環境でマイグレーションを適用します
@@ -10,12 +10,12 @@ MIGRATIONS_DIR="$PROJECT_ROOT/migrations"
 DOCKER_COMPOSE_DIR="$PROJECT_ROOT/local-environment"
 
 # PostgreSQL接続情報
-DB_HOST="localhost"
-DB_PORT="5432"
-DB_USER="postgres"
-DB_PASSWORD="postgres"
-DB_NAME="stg"
-DB_SSL_MODE="disable"
+DB_HOST=${DB_HOST:-localhost}
+DB_PORT=${DB_PORT:-5432}
+DB_USER=${DB_USER:-postgres}
+DB_PASSWORD=${DB_PASSWORD:-postgres}
+DB_NAME=${DB_NAME:-stg}
+DB_SSL_MODE=${DB_SSL_MODE:-disable}
 
 DATABASE_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSL_MODE}"
 
@@ -23,10 +23,27 @@ echo "[INFO] PostgreSQL マイグレーションを開始 (golang-migrate)..."
 
 cd "$DOCKER_COMPOSE_DIR"
 
+pg_ready() {
+  if [ "${SETUP_CONTAINER:-0}" = "1" ]; then
+    pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"
+  else
+    docker compose exec -T postgres pg_isready -U "$DB_USER"
+  fi
+}
+
+psql_cmd() {
+  if [ "${SETUP_CONTAINER:-0}" = "1" ]; then
+    PGPASSWORD="$DB_PASSWORD" PGSSLMODE="$DB_SSL_MODE" \
+      psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$@"
+  else
+    docker compose exec -T postgres psql -U "$DB_USER" "$@"
+  fi
+}
+
 # PostgreSQLが起動するまで待機
 echo "[INFO] PostgreSQL の起動を待機中..."
 for i in {1..30}; do
-  if docker compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1; then
+  if pg_ready > /dev/null 2>&1; then
     echo "[OK] PostgreSQL is ready"
     break
   fi
@@ -38,9 +55,10 @@ for i in {1..30}; do
 done
 
 # stg データベースが存在するか確認・作成
-if ! docker compose exec -T postgres psql -U postgres -lqt | cut -d \| -f 1 | grep -qw stg; then
-  echo "[OK] Creating database 'stg'..."
-  docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE stg;"
+database_list=$(psql_cmd -lqt)
+if ! printf '%s\n' "$database_list" | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+  echo "[INFO] Creating database '$DB_NAME'..."
+  psql_cmd -c "CREATE DATABASE \"$DB_NAME\";"
 fi
 
 # golang-migrate がインストールされているか確認
@@ -62,4 +80,4 @@ echo ""
 
 # テーブル一覧を表示
 echo "[INFO] 作成されたテーブル:"
-docker compose exec -T postgres psql -U postgres -d stg -c "\dt" 2>/dev/null | grep -E "^\s*public\s*\|" | awk -F'|' '{print "  - " $2}' | sed 's/^ //'
+psql_cmd -d "$DB_NAME" -c "\dt" | grep -E "^\s*public\s*\|" | awk -F'|' '{print "  - " $2}' | sed 's/^ //'

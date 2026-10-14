@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:4.12.0
     container_name: data-collector-localstack
     ports:
       - "4566:4566"
@@ -110,6 +110,31 @@ services:
       localstack:
         condition: service_healthy
     restart: unless-stopped
+
+  # 明示的に実行する準備用コンテナ。通常の up では起動しない。
+  setup:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: local-environment/setup/Dockerfile
+    depends_on:
+      localstack:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: ap-northeast-1
+      AWS_REGION: ap-northeast-1
+      AWS_PAGER: ""
+      LOCALSTACK_ENDPOINT: http://localstack:4566
+      DB_HOST: postgres
+      DB_PASSWORD: postgres
+      LAMBDA_DB_HOST: postgres
+      LAMBDA_AWS_ENDPOINT_URL: http://localstack:4566
+    volumes:
+      - ./nginx:/opt/data-collector/local-environment/nginx
 
 volumes:
   postgres-data:

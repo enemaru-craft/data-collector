@@ -4,13 +4,14 @@ ZIP_FILE := lambda_function.zip
 BINARY_NAME := bootstrap
 SOURCE_FILE := main.go
 AWS_PAGER := ""
+GOARCH ?= amd64
 
 .PHONY: build zip deploy clean all
 
 all: build zip deploy
 
 build:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o $(BINARY_NAME) $(SOURCE_FILE)
+	GOOS=linux GOARCH=$(GOARCH) CGO_ENABLED=0 go build -o $(BINARY_NAME) $(SOURCE_FILE)
 
 zip: build
 	zip $(ZIP_FILE) $(BINARY_NAME)

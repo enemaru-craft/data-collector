@@ -17,8 +17,11 @@ REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 
 MANAGEMENT_DIR="$REPO_ROOT/lambda/management-device-and-world-data-lambda"
 POWER_DIR="$REPO_ROOT/lambda/power-data-registration-lambda"
-MANAGEMENT_ZIP="$MANAGEMENT_DIR/lambda_function.zip"
-POWER_ZIP="$POWER_DIR/lambda_function.zip"
+MANAGEMENT_ZIP=${MANAGEMENT_ZIP:-$MANAGEMENT_DIR/lambda_function.zip}
+POWER_ZIP=${POWER_ZIP:-$POWER_DIR/lambda_function.zip}
+LAMBDA_ARCHITECTURE=${LAMBDA_ARCHITECTURE:-x86_64}
+LAMBDA_DB_HOST=${LAMBDA_DB_HOST:-host.docker.internal}
+LAMBDA_AWS_ENDPOINT_URL=${LAMBDA_AWS_ENDPOINT_URL:-http://host.docker.internal:4566}
 
 MANAGEMENT_FN=stg_management_device_and_world_data_lambda
 POWER_FN=stg_power_data_registration_lambda
@@ -43,9 +46,23 @@ wait_localstack() {
 }
 
 build_zips() {
+  if [ "${SKIP_BUILD:-0}" = "1" ]; then
+    if [ ! -f "$MANAGEMENT_ZIP" ] || [ ! -f "$POWER_ZIP" ]; then
+      echo "[ERROR] Prebuilt Lambda ZIPs not found" >&2
+      exit 1
+    fi
+    echo "[OK] Using prebuilt Lambda ZIPs"
+    return
+  fi
   echo "[INFO] Building Lambda ZIPs..."
-  (cd "$MANAGEMENT_DIR" && make zip)
-  (cd "$POWER_DIR" && make zip)
+  local goarch
+  case "$LAMBDA_ARCHITECTURE" in
+    x86_64) goarch=amd64 ;;
+    arm64) goarch=arm64 ;;
+    *) echo "[ERROR] Unsupported Lambda architecture: $LAMBDA_ARCHITECTURE" >&2; exit 1 ;;
+  esac
+  (cd "$MANAGEMENT_DIR" && make zip GOARCH="$goarch")
+  (cd "$POWER_DIR" && make zip GOARCH="$goarch")
   echo "[OK] ZIPs built"
 }
 
@@ -73,22 +90,27 @@ ensure_lambda() {
     awsl lambda create-function \
       --function-name "$name" \
       --runtime provided.al2023 \
+      --architectures "$LAMBDA_ARCHITECTURE" \
       --handler main \
       --role "$LAMBDA_ROLE_ARN" \
       --timeout 30 \
       --zip-file "fileb://${zip}" >/dev/null
     echo "[OK] Lambda ${name} created"
+    awsl lambda wait function-active-v2 --function-name "$name"
   else
     awsl lambda update-function-code \
       --function-name "$name" \
+      --architectures "$LAMBDA_ARCHITECTURE" \
       --zip-file "fileb://${zip}" >/dev/null
     echo "[OK] Lambda ${name} code updated"
+    awsl lambda wait function-updated-v2 --function-name "$name"
   fi
-  # 環境変数設定 (DB_HOSTはdocker-composeのservice名, sslmode=disableはローカル用)
+  # 作成・コード更新の完了後に接続先を設定する。失敗は成功扱いにしない。
   awsl lambda update-function-configuration \
     --function-name "$name" \
     --timeout 30 \
-    --environment "Variables={DB_HOST=host.docker.internal,DB_PASSWORD=postgres,AWS_REGION=${REGION},AWS_ENDPOINT_URL=http://host.docker.internal:4566}" >/dev/null 2>&1 || true
+    --environment "Variables={DB_HOST=${LAMBDA_DB_HOST},DB_PASSWORD=${DB_PASSWORD:-postgres},AWS_REGION=${REGION},AWS_ENDPOINT_URL=${LAMBDA_AWS_ENDPOINT_URL}}" >/dev/null
+  awsl lambda wait function-updated-v2 --function-name "$name"
   echo "[OK] Lambda ${name} env configured"
 }
 
@@ -112,7 +134,7 @@ ensure_lambda_function_url() {
       --action lambda:InvokeFunctionUrl \
       --statement-id FunctionURLAllowPublicAccess \
       --principal '*' \
-      --function-url-auth-type NONE >/dev/null 2>&1 || true
+      --function-url-auth-type NONE >/dev/null
 
     url=$(awsl lambda get-function-url-config --function-name "$name" --query 'FunctionUrl' --output text)
     echo "[OK] Function URL created for ${name}: ${url}"
@@ -128,8 +150,8 @@ configure_nginx_proxy() {
   fn_url=$(awsl lambda get-function-url-config --function-name "$fn_name" --query 'FunctionUrl' --output text 2>/dev/null || echo "")
 
   if [ -z "$fn_url" ] || [ "$fn_url" = "None" ]; then
-    echo "[WARN] Function URL not found for ${fn_name}, skipping NGINX config"
-    return
+    echo "[ERROR] Function URL not found for ${fn_name}" >&2
+    exit 1
   fi
 
   # URL からホスト名を抽出 (例: http://xxxxx.lambda-url.ap-northeast-1.localhost.localstack.cloud:4566/)
@@ -186,6 +208,10 @@ server {
 NGINX_EOF
 
   echo "[OK] NGINX config generated (upstream: ${fn_host})"
+
+  if [ "${SKIP_NGINX_RELOAD:-0}" = "1" ]; then
+    return
+  fi
 
   # NGINX をリロード
   docker compose -f "$REPO_ROOT/local-environment/docker-compose.yml" exec -T nginx nginx -s reload 2>/dev/null \

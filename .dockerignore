@@ -1,0 +1,12 @@
+.git
+.venv
+**/bootstrap
+**/*.zip
+**/coverage.*
+**/*.pem
+**/*.key
+local-environment/certs
+local-environment/localstack-data
+local-environment/mosquitto/data
+local-environment/mosquitto/log
+local-environment/nginx/default.conf
